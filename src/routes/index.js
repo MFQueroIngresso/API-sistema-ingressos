@@ -1,9 +1,11 @@
 const routes = require('express').Router();
 
 // Importa as rotas dos controllers
+const PDV = require('./pdv.router');
 const POS = require('./pos.router');
 
 // Definindo as rotas
+routes.use('/pdv', PDV);
 routes.use('/pos', POS);
 
 // Definindo a rota de erro 404
