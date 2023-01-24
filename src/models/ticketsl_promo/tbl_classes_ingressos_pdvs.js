@@ -12,7 +12,7 @@ const tbl_classes_ingressos = require('./tbl_classes_ingressos');
  * - tbl_pdvs (cip_pdv → pdv_id)
  * - tbl_classes_ingressos (cip_classe_ingresso → cla_cod)
  */
-const tbl_classes_ingressos_pdvs = require(
+const tbl_classes_ingressos_pdvs = db_conn.define(
     'tbl_classes_ingressos_pdvs',
     {
         cip_pdv: {

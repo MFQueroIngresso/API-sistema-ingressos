@@ -9,7 +9,7 @@ const tbl_modelo_pos = db_conn.define(
     'tbl_modelo_pos',
     {
         mod_cod: {
-            type: DataTypes.INTEGER(60),
+            type: DataTypes.STRING(60),
             primaryKey: true
         },
 
