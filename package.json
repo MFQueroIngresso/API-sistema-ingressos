@@ -1,13 +1,16 @@
 {
-  "name": "promo-api_v.0.1",
+  "name": "api-ingressos_v.0.1.0",
   "version": "0.1.0",
-  "description": "API da Quero Ingresso- Promo",
+  "description": "API da Quero Ingresso - Promo",
   "main": "index.js",
   "scripts": {
     "start": "node ./src",
     "dev": "nodemon ./src"
   },
-  "author": "Leonardo G. Ribeiro",
+  "author": {
+    "name": "Leonardo G. Ribeiro",
+    "email": "leo.ribeiro0256@gmail.com"
+  },
   "license": "ISC",
   "dependencies": {
     "cors": "^2.8.5",

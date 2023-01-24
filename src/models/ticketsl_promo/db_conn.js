@@ -33,6 +33,6 @@ ticketsl_promo.authenticate()
 })
 .catch(() => {
     console.log('\n-------- Falha ao conectar no banco "ticketsl_promo" --------\n')
-})
+});
 
 module.exports = ticketsl_promo;
