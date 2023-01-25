@@ -10,6 +10,8 @@ class PDVController {
     /**
      * Obtêm os dados de um PDV
      * 
+     * ex.: { pdv_id }
+     * 
      * @param {Request} req 
      * @param {Response} res 
      */
@@ -54,6 +56,25 @@ class PDVController {
     /**
      * Cadastra um novo PDV
      * 
+     * ex.: {
+     *      pdv_nome,
+     *      pdv_endereco,
+     *      pdv_telefone,
+     *      pdv_observacao,
+     *      pdv_data_inclusao,
+     *      pdv_cliente,
+     *      pdv_empresa,
+     *      pdv_cartao,
+     *      pdv_login,
+     *      pdv_senha,
+     *      pdv_ativo,
+     *      pdv_tipo,
+     *      pos_ativacao_smart_card,
+     *      pos_password,
+     *      pos_quantidade_parcela,
+     *      pos_percentual_taxa
+     * }
+     * 
      * @param {Request} req 
      * @param {Response} res 
      */
@@ -86,6 +107,9 @@ class PDVController {
 
     /**
      * Deleta um PDV informado
+     * 
+     * ex.: { pdv_id }
+     * 
      * @param {Request} req 
      * @param {Response} res 
      */
