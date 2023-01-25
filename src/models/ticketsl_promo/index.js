@@ -20,10 +20,12 @@ const tbl_itens_classes_ingressos = require('./tbl_itens_classes_ingressos');
 const tbl_meio_pgto = require('./tbl_meio_pgto');
 const tbl_modelo_pos = require('./tbl_modelo_pos');
 const tbl_pdvs = require('./tbl_pdvs');
+const tbl_perfis = require('./tbl_perfis');
 const tbl_pos = require('./tbl_pos');
 const tbl_setores = require('./tbl_setores');
 const tbl_status = require('./tbl_status');
 const tbl_tipo_empresas = require('./tbl_tipo_empresas');
+const tbl_usuarios = require('./tbl_usuarios');
 
 
 /**
@@ -39,11 +41,13 @@ const syncModels = async () => {
     await tbl_classe_numeracao.sync();
     await tbl_meio_pgto.sync();
     await tbl_modelo_pos.sync();
+    await tbl_perfis.sync();
     await tbl_setores.sync();
     await tbl_status.sync();
     await tbl_tipo_empresas.sync();
     await tbl_empresas.sync();
     await tbl_clientes.sync();
+    await tbl_usuarios.sync();
     await tbl_eventos.sync();
     await caixa.sync();
     await abastecimento.sync();
@@ -77,8 +81,10 @@ module.exports = {
     tbl_meio_pgto,
     tbl_modelo_pos,
     tbl_pdvs,
+    tbl_perfis,
     tbl_pos,
     tbl_setores,
     tbl_status,
     tbl_tipo_empresas,
+    tbl_usuarios,
 }
