@@ -118,7 +118,8 @@ tbl_modelo_pos.hasMany(tbl_pos, {
 });
 tbl_pos.belongsTo(tbl_modelo_pos, {
     foreignKey: 'pos_modelo',
-    targetKey: 'mod_cod'
+    targetKey: 'mod_cod',
+    as: 'modelo',
 });
 
 // tbl_empresas (pos_empresa → emp_id)

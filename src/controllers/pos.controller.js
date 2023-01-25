@@ -40,7 +40,24 @@ class POSController {
      * @param {*} _ 
      * @param {Response} res 
      */
-    static async list(_, res) {}
+    static async list(_, res) {
+        await tbl_pos.findAll({
+            include: {
+                model: tbl_modelo_pos,
+                as: 'modelo'
+            }
+        })
+        .then(data => {
+            res.json(data);
+        })
+        .catch(e => {
+            console.error(e);
+            res.status(400).json({
+                error: 'Erro ao Obter os POS',
+                message: JSON.stringify(e)
+            });
+        });
+    }
 
     /**
      * Cadastra um novo POS
