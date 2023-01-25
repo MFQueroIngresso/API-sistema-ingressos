@@ -7,6 +7,7 @@
 const abastecimento = require('./abastecimento');
 const caixa = require('./caixa');
 const grupo_de_usuarios = require('./grupo_de_usuarios');
+const ingresso_cancelado = require('./ingresso_cancelado');
 const regra_de_acesso = require('./regra_de_acesso');
 const sangria = require('./sangria');
 const tbl_classe_numeracao = require('./tbl_classe_numeracao');
@@ -28,6 +29,7 @@ const tbl_setores = require('./tbl_setores');
 const tbl_status = require('./tbl_status');
 const tbl_tipo_empresas = require('./tbl_tipo_empresas');
 const tbl_usuarios = require('./tbl_usuarios');
+const usuario = require('./usuario');
 
 
 /**
@@ -65,6 +67,7 @@ const syncModels = async () => {
     await tbl_classes_ingressos_pdvs.sync();
     await tbl_itens_classes_ingressos.sync();
     await tbl_ingressos.sync();
+    await ingresso_cancelado.sync();
 }
 
 syncModels();
@@ -73,6 +76,7 @@ module.exports = {
     abastecimento,
     caixa,
     grupo_de_usuarios,
+    ingresso_cancelado,
     regra_de_acesso,
     sangria,
     tbl_classe_numeracao,
