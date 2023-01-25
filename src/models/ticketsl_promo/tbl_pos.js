@@ -31,7 +31,7 @@ const tbl_pos = db_conn.define(
         },
 
         pos_operadora: {
-            type: DataTypes.INTEGER(60)
+            type: DataTypes.STRING(60)
         },
 
         pos_finalidade: {
