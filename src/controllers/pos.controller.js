@@ -11,6 +11,8 @@ class POSController {
     /**
      * Obtêm os dados de um POS
      * 
+     * ex.: { pos_serie }
+     * 
      * @param {Request} req 
      * @param {Response} res 
      */
@@ -35,13 +37,34 @@ class POSController {
     /**
      * Lista todos os POS cadastrados
      * 
-     * @param {Request} req 
+     * @param {*} _ 
      * @param {Response} res 
      */
-    static async list(req, res) {}
+    static async list(_, res) {}
 
     /**
      * Cadastra um novo POS
+     * 
+     * ex.: {
+     *      pos_serie,
+     *      pos_modelo,
+     *      pos_pdv,
+     *      pos_operadora,
+     *      pos_finalidade,
+     *      pos_data_inclusao,
+     *      pos_numero_chip,
+     *      pos_empresa,
+     *      pos_posweb_key,
+     *      pos_versao_navs,
+     *      pos_versao_qi,
+     *      pos_numero_celular,
+     *      pos_tipo_conexao,
+     *      pos_data_credito,
+     *      pos_ativacao_smart_card,
+     *      pos_password,
+     *      pos_quantidade_parcela,
+     *      pos_percentual_taxa
+     * }
      * 
      * @param {Request} req 
      * @param {Response} res 
@@ -57,7 +80,7 @@ class POSController {
         .catch(e => {
             console.error(e);
             res.status(400).json({
-                erro: 'Erro ao Cadastrar o POS',
+                error: 'Erro ao Cadastrar o POS',
                 message: JSON.stringify(e)
             });
         });
@@ -65,6 +88,12 @@ class POSController {
 
     /**
      * Cadastra um novo modelo de POS
+     * 
+     * ex.: {
+     *      mod_browser
+     *      mod_modelo
+     *      mod_data_inclusao
+     * }
      * 
      * @param {Request} req 
      * @param {Response} res 
@@ -80,7 +109,7 @@ class POSController {
         .catch(e => {
             console.error(e);
             res.status(400).json({
-                erro: 'Erro ao Cadastrar o Modelo de POS',
+                error: 'Erro ao Cadastrar o Modelo de POS',
                 message: JSON.stringify(e)
             });
         });
