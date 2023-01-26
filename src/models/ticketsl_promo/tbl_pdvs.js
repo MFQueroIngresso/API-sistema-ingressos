@@ -6,7 +6,7 @@ const tbl_empresas = require('./tbl_empresas');
 
 
 /**
- * Tabela dos PDVs
+ * Tabela dos PDVs (Pontos de Venda)
  * 
  * foreign keys:
  * - tbl_clientes (pdv_cliente → cli_id)

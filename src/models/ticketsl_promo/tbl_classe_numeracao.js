@@ -3,7 +3,7 @@ const db_conn = require('./db_conn');
 
 
 /**
- * Tabela de numeração dos ingressos?
+ * Tabela de numeração das classes dos ingressos?
  */
 const tbl_classe_numeracao = db_conn.define(
     'tbl_classe_numeracao',

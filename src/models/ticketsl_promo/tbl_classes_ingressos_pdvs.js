@@ -6,7 +6,7 @@ const tbl_classes_ingressos = require('./tbl_classes_ingressos');
 
 
 /**
- * Tabela ponte entre: PDVs (tbl_pdvs) e ingressos (tbl_classes_ingressos)
+ * Tabela ponte entre: PDVs (tbl_pdvs) e as classes de ingressos (tbl_classes_ingressos)
  * 
  * foreign keys:
  * - tbl_pdvs (cip_pdv → pdv_id)

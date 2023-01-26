@@ -5,7 +5,7 @@ const caixa = require('./caixa');
 
 
 /**
- * Tabela das sangrias
+ * Tabela das sangrias de caixa
  * 
  * foreign key:
  * - caixa (CAIXA → CODIGO)

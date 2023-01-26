@@ -5,7 +5,7 @@ const tbl_classes_ingressos = require('./tbl_classes_ingressos');
 
 
 /**
- * Itens dos ingressos?
+ * Tabela com o estoque das classes de ingressos
  * 
  * foreign key:
  * - tbl_classes_ingressos (itc_classe → cla_cod)
