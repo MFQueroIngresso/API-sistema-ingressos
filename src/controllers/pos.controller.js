@@ -1,7 +1,14 @@
+const { Op } = require('sequelize');
 const { ticketsl_promo } = require('../models');
 const {
     tbl_pos,
-    tbl_modelo_pos
+    tbl_pdvs,
+    tbl_modelo_pos,
+    tbl_eventos_pdvs,
+    tbl_eventos,
+    tbl_classes_ingressos,
+    tbl_itens_classes_ingressos,
+    tbl_classes_ingressos_pdvs
 } = ticketsl_promo;
 
 /**
@@ -29,6 +36,69 @@ class POSController {
             console.error(e);
             res.status(400).json({
                 error: 'Erro ao Obter o POS',
+                message: JSON.stringify(e)
+            });
+        });
+    }
+
+    
+    /**
+     * Login do PDV, através do POS
+     * 
+     * @param {Request} req 
+     * @param {Response} res 
+     */
+    static async login(req, res) {
+        const { pos_serie, pdv_login, pdv_senha } = req.body;
+
+        // Descriptografa a senha
+        let pass = pdv_senha;
+
+        await tbl_pos.findOne({
+            where: { pos_serie },
+            include: {
+                model: tbl_pdvs,
+                /* where: {
+                    pdv_login,
+                    pdv_senha: pass
+                }, */
+            }
+        })
+        .then(async result => {
+            // O POS não foi encontrado?
+            if(!result) throw 'Login ou Senha inválidos';
+
+            // Obtêm o id do PDV
+            const pdv = result?.dataValues?.pos_pdv;
+
+            // Agrupa os eventos permitidos
+            const allowed_eventos = await tbl_eventos_pdvs.findAll({ where: { evp_pdv: pdv }})
+            .then(eventos => eventos?.map(e => e?.evp_evento));
+
+            // Agrupa os ingressos permitidos
+            const allowed_tickets = await tbl_classes_ingressos_pdvs.findAll({ where: { cip_pdv: pdv }})
+            .then(tickets => tickets?.map(e => e?.cip_classe_ingresso));
+
+            // Retorna todos os eventos e ingressos permitidos ao POS
+            await tbl_eventos.findAll({
+                where: {
+                    eve_cod: { [Op.in]: allowed_eventos }
+                },
+                include: {
+                    model: tbl_classes_ingressos,
+                    where: {
+                        cla_cod: { [Op.in]: allowed_tickets }
+                    }
+                }
+            })
+            .then(data => {
+                res.json(data);
+            });
+        })
+        .catch(e => {
+            console.error(e);
+            res.status(400).json({
+                error: 'Erro ao Logar no POS',
                 message: JSON.stringify(e)
             });
         });
