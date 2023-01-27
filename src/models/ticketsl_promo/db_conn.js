@@ -13,10 +13,10 @@ const operatorsAliases = {
 // Define a conexão com o banco
 const ticketsl_promo = new Sequelize(
     process.env.DB_TICKETSL_PROMO, //Database
-    process.env.DB_USER,  //User
-    process.env.DB_PASS,  //Password
+    process.env.DB_PROMO_USER,  //User
+    process.env.DB_PROMO_PASS,  //Password
     {
-        host: process.env.DB_HOST, // Host
+        host: process.env.DB_PROMO_HOST, // Host
         dialect: 'mysql',
         define: {
             freezeTableName: true
