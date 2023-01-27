@@ -238,9 +238,12 @@ const getPOSEvents = async (pos_serie, include, error_msg) => {
                 model: tbl_classes_ingressos,
                 where: {
                     cla_cod: { [Op.in]: allowed_tickets }
+                },
+                include: {
+                    model: tbl_itens_classes_ingressos
                 }
             }
-        })
+        });
     });
 }
 
