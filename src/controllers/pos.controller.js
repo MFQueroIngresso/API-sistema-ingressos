@@ -55,15 +55,16 @@ class POSController {
         // Descriptografa a senha
         let pass = pdv_senha;
 
+        /* depois arrumar o include para realizar o login */
         await getPOSEvents(
             pos_serie,
-            {
+            /* {
                 model: tbl_pdvs,
                 where: {
                     pdv_login,
                     pdv_senha: pass
                 },
-            },
+            } */null,
             'Login ou Senha inválidos'
         )
         .then(data => {
