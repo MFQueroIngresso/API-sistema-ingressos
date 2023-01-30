@@ -1,6 +1,6 @@
 // Conecta o schema 'ticketsl_loja' com a API pelo Sequelize
 
-const Sequelize = require('sequelize');
+const { Sequelize } = require('sequelize');
 
 // Variaveis para operações de busca no banco
 const Op = Sequelize.Op;

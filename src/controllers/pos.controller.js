@@ -1,6 +1,6 @@
 const { Op } = require('sequelize');
 const { ticketsl_promo } = require('../models');
-const { SHA256 } = require('crypto-js')
+const { SHA256, AES } = require('crypto-js')
 const {
     tbl_pos,
     tbl_pdvs,
@@ -56,20 +56,22 @@ class POSController {
         let pass = pdv_senha;
 
         /* depois arrumar o include para realizar o login */
-        await getPOSEvents(
-            pos_serie,
-            /* {
+        await tbl_pos.findOne({
+            where: { pos_serie },
+            /* include: {
                 model: tbl_pdvs,
                 where: {
                     pdv_login,
                     pdv_senha: pass
                 },
-            } */null,
-            'Login ou Senha inválidos'
-        )
+            } */
+        })
         .then(data => {
+            // O POS não foi encontrado?
+            if(!data) throw "Login ou Senha inválidos";
+
             const hash = SHA256(JSON.stringify(data)).toString();
-            res.json({ hash, data });
+            res.json(hash);
         })
         .catch(e => {
             console.error(e);
@@ -175,7 +177,8 @@ class POSController {
     }
 
     /**
-     * Procura por atualizações nos dados do POS
+     * Procura por atualizações nos dados do POS,
+     * comparando a chave hash informada.
      * 
      * @param {Request} req { pos_serie, hash }
      * @param {Response} res 
@@ -183,69 +186,71 @@ class POSController {
     static async searchUpdate(req, res) {
         const { pos_serie, hash } = req.body;
 
-        await getPOSEvents(pos_serie)
-        .then(data => {
-            const _this = SHA256(JSON.stringify(data)).toString();
+        await tbl_pos.findOne({ where: { pos_serie }})
+        .then(async result => {
+            // O POS não foi encontrado?
+            if(!result) throw 'POS desconhecido';
+    
+            // Obtêm o id do PDV
+            const pdv = result?.dataValues?.pos_pdv;
+    
+            // Agrupa os eventos permitidos
+            const allowed_eventos = await tbl_eventos_pdvs.findAll({ where: { evp_pdv: pdv }})
+            .then(eventos => eventos?.map(e => e?.evp_evento));
+    
+            // Agrupa os ingressos permitidos
+            const allowed_tickets = await tbl_classes_ingressos_pdvs.findAll({ where: { cip_pdv: pdv }})
+            .then(tickets => tickets?.map(e => e?.cip_classe_ingresso));
+    
+            // Obtêm todos os eventos e ingressos permitidos ao POS
+            await tbl_eventos.findAll({
+                where: {
+                    eve_cod: { [Op.in]: allowed_eventos }
+                },
+                include: {
+                    model: tbl_classes_ingressos,
+                    where: {
+                        cla_cod: { [Op.in]: allowed_tickets }
+                    },
+                    include: {
+                        model: tbl_itens_classes_ingressos,
+                        order: [
+                            ['itc_prioridade', 'ASC'], // organizar por prioridade
+                            ['itc_quantidade', 'ASC']  //  "    "   por quantidade
+                        ],
+                        limit: 1
+                    }
+                }
+            })
+            .then(data => {
+                // Hash dos dados do POS
+                const _this = SHA256(JSON.stringify(data)).toString();
 
-            // Os dados do banco diferem do hash do POS?
-            if(_this !== hash)
-                res.json(data);
-            res.json({ message: 'Nenhuma Atualização Nova' });
+                // Hash do POS
+                const hash_pos = SHA256(JSON.stringify(result)).toString();
+
+                // O hash do request está vazio/é inválido?
+                if(!hash) throw 'Hash vazio ou inválido';
+    
+                // Os dados do banco diferem do hash no request?
+                // Ou o hash do POS é igual ao hash no request?
+                if(_this !== hash || hash_pos === hash) {
+                    // Retorna o novo hash e os dados do POS
+                    const data_code = data/* AES.encrypt(JSON.stringify(data), pos_serie).toString(); */
+                    res.json({ hash: _this, data: data_code });
+                }
+                else
+                    res.json({ message: 'Nenhuma Atualização Nova' });
+            });
         })
         .catch(e => {
             console.error(e);
             res.status(400).json({
-                error: 'Erro ao Procurar Atualizações no POS',
+                error: 'Erro ao Procurar os Dados no POS',
                 message: JSON.stringify(e)
             });
         });
     }
-}
-
-/**
- * Obtêm os eventos e ingressos de um POS
- * 
- * @param {string} pos_serie 
- * @param {JSON|undefined} include Tabelas inclusas para direcionar a procura do POS
- * @param {string|undefined} error_msg Mensagem de erro no caso de não encontrar o POS
- * @returns {Promise<JSON>}
- */
-const getPOSEvents = async (pos_serie, include, error_msg) => {
-    return await tbl_pos.findOne({
-        where: { pos_serie },
-        include: include ?? null
-    })
-    .then(async result => {
-        // O POS não foi encontrado?
-        if(!result) throw error_msg ?? 'POS desconhecido';
-
-        // Obtêm o id do PDV
-        const pdv = result?.dataValues?.pos_pdv;
-
-        // Agrupa os eventos permitidos
-        const allowed_eventos = await tbl_eventos_pdvs.findAll({ where: { evp_pdv: pdv }})
-        .then(eventos => eventos?.map(e => e?.evp_evento));
-
-        // Agrupa os ingressos permitidos
-        const allowed_tickets = await tbl_classes_ingressos_pdvs.findAll({ where: { cip_pdv: pdv }})
-        .then(tickets => tickets?.map(e => e?.cip_classe_ingresso));
-
-        // Retorna todos os eventos e ingressos permitidos ao POS
-        return await tbl_eventos.findAll({
-            where: {
-                eve_cod: { [Op.in]: allowed_eventos }
-            },
-            include: {
-                model: tbl_classes_ingressos,
-                where: {
-                    cla_cod: { [Op.in]: allowed_tickets }
-                },
-                include: {
-                    model: tbl_itens_classes_ingressos
-                }
-            }
-        });
-    });
 }
 
 module.exports = POSController;

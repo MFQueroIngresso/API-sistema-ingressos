@@ -1,11 +1,12 @@
 {
-  "name": "api-ingressos_v.0.1.1",
-  "version": "0.1.0",
+  "name": "api-qingressos",
+  "version": "0.1.2",
   "description": "API da Quero Ingresso - Promo",
   "main": "index.js",
   "scripts": {
     "start": "node ./src",
-    "dev": "nodemon ./src"
+    "dev": "nodemon ./src",
+    "test": "jest ./src"
   },
   "author": {
     "name": "Leonardo G. Ribeiro",
@@ -21,6 +22,8 @@
     "sequelize": "^6.28.0"
   },
   "devDependencies": {
+    "jest": "^29.4.1",
+    "node-mocks-http": "^1.12.1",
     "nodemon": "^2.0.20"
   }
 }
