@@ -1,6 +1,9 @@
 const { Op } = require('sequelize');
 const { ticketsl_promo } = require('../models');
 const { SHA256, AES } = require('crypto-js');
+const Stream = require('stream').Transform;
+const https = require('https');
+const fs = require('fs');
 const {
     tbl_pos,
     tbl_pdvs,
@@ -195,8 +198,16 @@ class POSController {
             const pdv = result?.dataValues?.pos_pdv;
     
             // Agrupa os eventos permitidos
-            const allowed_eventos = await tbl_eventos_pdvs.findAll({ where: { evp_pdv: pdv }})
-            .then(eventos => eventos?.map(e => e?.evp_evento));
+            const allowed_eventos = await tbl_eventos_pdvs.findAll({
+                where: { evp_pdv: pdv },
+                include: {
+                    model: tbl_eventos,
+                    where: { eve_ativo: 1 } // somente eventos ativos
+                }
+            })
+            .then(eventos => {
+                return eventos?.map(e => e?.evp_evento)
+            });
     
             // Agrupa os ingressos permitidos
             const allowed_tickets = await tbl_classes_ingressos_pdvs.findAll({ where: { cip_pdv: pdv }})
@@ -237,18 +248,74 @@ class POSController {
                 // Os dados do banco diferem do hash no request?
                 // Ou o hash do POS é igual ao hash no request?
                 if(_this !== hash || hash_pos === hash) {
-                    // Organiza os dados
+                    // URL base das imagens dos eventos
+                    const url_base = 'https://qingressos.com/image/cache/data/';
+
+                    // Armazena as mudanças feitas nos dados
+                    const setChanges = [];
+
+                    // Organiza os dados (eventos)
                     data.forEach(value => {
-                        value.tbl_classes_ingressos.map(a => {
-                            a.tbl_itens_classes_ingressos = a.tbl_itens_classes_ingressos[0];
-                            return a;
-                        });
-                        return value
+                        setChanges.push(new Promise(async (resolve, reject) => {
+                            // Obtêm a logo do evento
+                            const getImage = new Promise((imgResolve, imgReject) => {
+                                https.request(`${url_base}/${value.eve_cod}/${value.eve_cod}_imageOutdor-457x400.png`, resp => {
+                                    const data = new Stream();
+
+                                    // Se a imagem não for encontrada, retorna null
+                                    if(resp.statusCode === 404) imgResolve(null);
+        
+                                    resp.once('data', chunck => {
+                                        data.push(chunck);
+                                    });
+        
+                                    resp.once('end', () => {
+                                        // Cria um arquivo temporário para a imagem
+                                        const filepath = `${process.cwd()}/src/temp/image_${value.eve_cod}.jpg`;
+                                        fs.writeFileSync(filepath, data.read());
+                                        
+                                        fs.createReadStream(filepath).once('data', img => {
+                                            // Remove o arquivo temporário depois de usar a imagem
+                                            fs.rmSync(filepath);
+                                            imgResolve(img.toString('base64'));
+                                        });
+                                    });
+    
+                                    resp.on('error', error => {
+                                        console.error(error)
+                                        imgReject(error);
+                                    });
+                                })
+                                .end();
+                            });
+                            
+                            // Altera "tbl_itens_classes_ingressos" de um array[1] para json
+                            value.tbl_classes_ingressos.map(a => {
+                                a.tbl_itens_classes_ingressos = a.tbl_itens_classes_ingressos[0];
+                                return a;
+                            });
+    
+                            await getImage
+                            .then(resp => {
+                                // Defini a imagem do evento
+                                value.image_logo = resp;
+                                resolve(value);
+                            })
+                            .catch(e => {
+                                console.error(e);
+                                reject(e);
+                            });
+                        }));
+
+                        return value;
                     });
 
-                    // Retorna o novo hash e os dados do POS
-                    const data_code = data/* AES.encrypt(JSON.stringify(data), pos_serie).toString(); */
-                    res.json({ hash: _this, data: data_code });
+                    // Aplica as mdanças feitas nos dados
+                    Promise.all(setChanges).then(() => {
+                        // Retorna o novo hash e os dados do POS
+                        const data_code = data/* AES.encrypt(JSON.stringify(data), pos_serie).toString(); */
+                        res.json({ hash: _this, data: data_code });
+                    });
                 }
                 else
                     res.json({ message: 'Nenhuma Atualização Nova' });
