@@ -1,6 +1,6 @@
 const { Op } = require('sequelize');
 const { ticketsl_promo } = require('../models');
-const { SHA256, AES } = require('crypto-js')
+const { SHA256, AES } = require('crypto-js');
 const {
     tbl_pos,
     tbl_pdvs,
@@ -71,7 +71,7 @@ class POSController {
             if(!data) throw "Login ou Senha inválidos";
 
             const hash = SHA256(JSON.stringify(data)).toString();
-            res.json(hash);
+            res.json({ hash });
         })
         .catch(e => {
             console.error(e);
@@ -222,7 +222,9 @@ class POSController {
                     }
                 }
             })
-            .then(data => {
+            .then(result => {
+                const data = JSON.parse(JSON.stringify(result));
+
                 // Hash dos dados do POS
                 const _this = SHA256(JSON.stringify(data)).toString();
 
@@ -235,6 +237,15 @@ class POSController {
                 // Os dados do banco diferem do hash no request?
                 // Ou o hash do POS é igual ao hash no request?
                 if(_this !== hash || hash_pos === hash) {
+                    // Organiza os dados
+                    data.forEach(value => {
+                        value.tbl_classes_ingressos.map(a => {
+                            a.tbl_itens_classes_ingressos = a.tbl_itens_classes_ingressos[0];
+                            return a;
+                        });
+                        return value
+                    });
+
                     // Retorna o novo hash e os dados do POS
                     const data_code = data/* AES.encrypt(JSON.stringify(data), pos_serie).toString(); */
                     res.json({ hash: _this, data: data_code });
