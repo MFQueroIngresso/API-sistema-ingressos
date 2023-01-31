@@ -17,7 +17,7 @@ const tbl_classe_numeracao = db_conn.define(
 
         clg_cod: {
             type: DataTypes.INTEGER(11),
-            unique: true
+            unique: false// true
         },
 
         eve_cod: {
@@ -34,7 +34,7 @@ const tbl_classe_numeracao = db_conn.define(
 
         cln_disp: {
             type: DataTypes.TINYINT(1),
-            unique: true
+            unique: false// true
         },
 
         cln_lock_pos: {
