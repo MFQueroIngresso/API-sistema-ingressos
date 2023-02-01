@@ -1,9 +1,6 @@
 const { Op } = require('sequelize');
 const { ticketsl_promo } = require('../models');
 const { SHA256, AES } = require('crypto-js');
-const Stream = require('stream').Transform;
-const https = require('https');
-const fs = require('fs');
 const {
     tbl_pos,
     tbl_pdvs,
@@ -14,8 +11,6 @@ const {
     tbl_itens_classes_ingressos,
     tbl_classes_ingressos_pdvs
 } = ticketsl_promo;
-
-
 
 /**
  * Controlador das maquininhas (POS)
@@ -189,17 +184,22 @@ class POSController {
     static async searchUpdate(req, res) {
         const { pos_serie, hash } = req.body;
 
-        await tbl_pos.findOne({ where: { pos_serie }})
+        await tbl_pos.findOne({
+            where: { pos_serie },
+            include: {
+                model: tbl_pdvs
+            }
+        })
         .then(async result => {
             // O POS não foi encontrado?
             if(!result) throw 'POS desconhecido';
     
             // Obtêm o id do PDV
-            const pdv = result?.dataValues?.pos_pdv;
+            const pdv = result?.dataValues?.tbl_pdv;
     
             // Agrupa os eventos permitidos
             const allowed_eventos = await tbl_eventos_pdvs.findAll({
-                where: { evp_pdv: pdv },
+                where: { evp_pdv: pdv?.pdv_id },
                 include: {
                     model: tbl_eventos,
                     where: { eve_ativo: 1 } // somente eventos ativos
@@ -210,7 +210,7 @@ class POSController {
             });
     
             // Agrupa os ingressos permitidos
-            const allowed_tickets = await tbl_classes_ingressos_pdvs.findAll({ where: { cip_pdv: pdv }})
+            const allowed_tickets = await tbl_classes_ingressos_pdvs.findAll({ where: { cip_pdv: pdv?.pdv_id }})
             .then(tickets => tickets?.map(e => e?.cip_classe_ingresso));
     
             // Obtêm todos os eventos e ingressos permitidos ao POS
@@ -276,7 +276,7 @@ class POSController {
                     Promise.all(setChanges).then(() => {
                         // Retorna o novo hash e os dados do POS
                         const data_code = data/* AES.encrypt(JSON.stringify(data), pos_serie).toString(); */
-                        res.json({ hash: _this, data: data_code });
+                        res.json({ hash: _this, pdv, data: data_code });
                     });
                 }
                 else

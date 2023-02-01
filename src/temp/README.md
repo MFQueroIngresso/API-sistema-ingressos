@@ -1,1 +1,0 @@
-_Pasta de arquivos temporários_
