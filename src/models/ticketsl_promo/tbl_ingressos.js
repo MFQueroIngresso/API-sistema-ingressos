@@ -112,7 +112,7 @@ const tbl_ingressos = db_conn.define(
 
         cln_cod: {
             type: DataTypes.INTEGER(60),
-            unique: true
+            unique: false//true
         },
 
         ing_numeracao: {
@@ -121,7 +121,7 @@ const tbl_ingressos = db_conn.define(
 
         ing_mpgto: {
             type: DataTypes.INTEGER(10),
-            unique: true
+            unique: false//true
         },
 
         ing_cartao_auth: {

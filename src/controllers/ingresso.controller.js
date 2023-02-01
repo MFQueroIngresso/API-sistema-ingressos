@@ -1,3 +1,4 @@
+const { Op } = require('sequelize');
 const { ticketsl_promo } = require('../models');
 const {
     tbl_ingressos,
@@ -52,8 +53,15 @@ class IngressoController {
 
         // Registra a venda
         await tbl_ingressos.create(req.body)
-        .then(result => {
-            res.json(!!result);
+        .then(async result => {
+            // Ingresso registrado?
+            if(!!result) {
+                await tbl_ingressos.findByPk(data.ing_cod_barras)
+                .then(data => {
+                    res.json(data);
+                });
+            }
+            else throw '';// falta uma mensagem de erro
         })
         .catch(e => {
             console.error(e);
@@ -65,14 +73,41 @@ class IngressoController {
     }
 
     /**
-     * Confirma a venda do ingresso no POS, mas ainda pentende o recebimento
+     * Confirma a venda do(s) ingresso(s) no POS, mas ainda pentende o recebimento
      * 
-     * @param {Request} req 
+     * @param {Request} req { cod }
      * @param {Response} res 
      */
     static async confirmIngresso(req, res) {
-        res.status(501).json({
-            message: 'Não implementado'
+        // Organiza o(s) ingresso(s) em um array
+        const ingressos = typeof req.body.cod === "string" ? [req.body.cod] : [...req.body.cod];
+        
+        await tbl_ingressos.update(
+            { ing_status: 1 },
+            { where: {
+                ing_cod_barras: { [Op.in]: ingressos }
+            }}
+        )
+        .then(async result => {
+            // Os ingressos foram confirmados?
+            if(result[0] === ingressos.length) {
+                await tbl_ingressos.findAll({
+                    where: {
+                        ing_cod_barras: { [Op.in]: ingressos }
+                    }
+                })
+                .then(data => {
+                    res.json(data);
+                });
+            }
+            else throw '';// falta uma mensagem de erro
+        })
+        .catch(e => {
+            console.error(e);
+            res.status(400).json({
+                error: 'Erro ao Confirmar o(s) ingresso(s)',
+                message: JSON.stringify(e)
+            });
         });
     }
 
