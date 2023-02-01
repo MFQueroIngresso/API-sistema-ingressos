@@ -248,63 +248,25 @@ class POSController {
                 // Os dados do banco diferem do hash no request?
                 // Ou o hash do POS é igual ao hash no request?
                 if(_this !== hash || hash_pos === hash) {
-                    // URL base das imagens dos eventos
-                    const url_base = 'https://qingressos.com/image/cache/data/';
-
                     // Armazena as mudanças feitas nos dados
                     const setChanges = [];
 
                     // Organiza os dados (eventos)
                     data.forEach(value => {
-                        setChanges.push(new Promise(async (resolve, reject) => {
-                            // Obtêm a logo do evento
-                            const getImage = new Promise((imgResolve, imgReject) => {
-                                https.request(`${url_base}/${value.eve_cod}/${value.eve_cod}_imageOutdor-457x400.png`, resp => {
-                                    const data = new Stream();
+                        setChanges.push(new Promise(async (resolve, _) => {
+                            // URL base das imagens dos eventos
+                            const url_base = 'https://qingressos.com/image/cache/data';
 
-                                    // Se a imagem não for encontrada, retorna null
-                                    if(resp.statusCode === 404) imgResolve(null);
-        
-                                    resp.once('data', chunck => {
-                                        data.push(chunck);
-                                    });
-        
-                                    resp.once('end', () => {
-                                        // Cria um arquivo temporário para a imagem
-                                        const filepath = `${process.cwd()}/src/temp/image_${value.eve_cod}.jpg`;
-                                        fs.writeFileSync(filepath, data.read());
-                                        
-                                        fs.createReadStream(filepath).once('data', img => {
-                                            // Remove o arquivo temporário depois de usar a imagem
-                                            fs.rmSync(filepath);
-                                            imgResolve(img.toString('base64'));
-                                        });
-                                    });
-    
-                                    resp.on('error', error => {
-                                        console.error(error)
-                                        imgReject(error);
-                                    });
-                                })
-                                .end();
-                            });
-                            
+                            // Link da imagem do evento
+                            value.image_logo = `${url_base}/${value.eve_cod}/${value.eve_cod}_imageOutdor-457x400.png`;
+
                             // Altera "tbl_itens_classes_ingressos" de um array[1] para json
                             value.tbl_classes_ingressos.map(a => {
                                 a.tbl_itens_classes_ingressos = a.tbl_itens_classes_ingressos[0];
                                 return a;
                             });
     
-                            await getImage
-                            .then(resp => {
-                                // Defini a imagem do evento
-                                value.image_logo = resp;
-                                resolve(value);
-                            })
-                            .catch(e => {
-                                console.error(e);
-                                reject(e);
-                            });
+                            resolve(value);
                         }));
 
                         return value;
