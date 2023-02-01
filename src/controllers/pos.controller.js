@@ -233,8 +233,8 @@ class POSController {
                     }
                 }
             })
-            .then(result => {
-                const data = JSON.parse(JSON.stringify(result));
+            .then(eventos => {
+                const data = JSON.parse(JSON.stringify(eventos));
 
                 // Hash dos dados do POS
                 const _this = SHA256(JSON.stringify(data)).toString();
