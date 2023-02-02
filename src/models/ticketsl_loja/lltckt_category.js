@@ -106,7 +106,7 @@ const lltckt_category = db_conn.define(
             type: DataTypes.DATE
         }
     },
-    { timestamps: false, schema: 'ticketsl_loja' }
+    { timestamps: false, schema: process.env.DB_TICKETSL_LOJA }
 );
 
 module.exports = lltckt_category;

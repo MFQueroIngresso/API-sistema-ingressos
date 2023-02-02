@@ -97,7 +97,7 @@ const tbl_eventos = db_conn.define(
             type: DataTypes.STRING(8)
         }
     },
-    { timestamps: false, schema: 'ticketsl_promo' }
+    { timestamps: false, schema: process.env.DB_TICKETSL_PROMO }
 );
 
 // foreign keys

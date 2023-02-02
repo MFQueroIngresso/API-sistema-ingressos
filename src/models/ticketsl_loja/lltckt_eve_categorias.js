@@ -30,7 +30,7 @@ const lltckt_eve_categorias = ticketsl_loja.define(
             type: DataTypes.INTEGER(11)
         }
     },
-    { timestamps: false, schema: 'ticketsl_loja' }
+    { timestamps: false, schema: process.env.DB_TICKETSL_LOJA }
 );
 
 // foreign keys:
