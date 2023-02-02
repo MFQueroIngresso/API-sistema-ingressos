@@ -123,26 +123,69 @@ class IngressoController {
     }
 
     /**
-     * Confirma o recebimento do ingresso
+     * Confirma o recebimento do(s) ingresso(s) e finaliza a compra
      * 
-     * @param {Request} req 
+     * @param {Request} req { cod }
      * @param {Response} res 
      */
     static async finishIngresso(req, res) {
-        res.status(501).json({
-            message: 'Não implementado'
+        // Organiza o(s) ingresso(s) em um array
+        const ingressos = typeof req.body.cod === "string" ? [req.body.cod] : [...req.body.cod];
+        
+        await tbl_ingressos.update(
+            { ing_status: 2 },
+            { where: {
+                ing_cod_barras: { [Op.in]: ingressos }
+            }}
+        )
+        .then(result => {
+            res.json({ status: result[0] === ingressos.length });
+        })
+        .catch(e => {
+            console.error(e);
+            res.status(400).json({
+                error: 'Erro ao Confirmar o Recebimento do(s) Ingresso(s)',
+                message: JSON.stringify(e)
+            });
         });
     }
 
     /**
-     * Cancela um ingresso
+     * Cancela uma venda de ingresso
      * 
-     * @param {Request} req 
+     * @param {Request} req { cod }
      * @param {Response} res 
      */
     static async cancelIngresso(req, res) {
-        res.status(501).json({
-            message: 'Não implementado'
+        const { ing_cod_barras, itc_cod } = req.body;
+
+        await tbl_ingressos.findByPk(ing_cod_barras)
+        .then(async ({ dataValues: ingresso }) => {
+            await tbl_ingressos.destroy({
+                where: { ing_cod_barras }
+            })
+            .then(async result => {
+                // Ingresso não deletado
+                if(!result) throw 'Falha ao remover o Ingresso';
+    
+                // Aumenta a quantidade de ingressos disponíveis em 1
+                await tbl_itens_classes_ingressos.increment(
+                    { itc_quantidade: 1 },
+                    { where: {
+                        itc_cod: ingresso.ing_item_classe_ingresso
+                    }}
+                )
+                .then(result => {
+                    res.json({ status: result[1] < 0 });
+                });
+            });
+        })
+        .catch(e => {
+            console.error(e);
+            res.status(400).json({
+                error: 'Erro ao Cancelar o Ingresso',
+                message: JSON.stringify(e)
+            });
         });
     }
 }
