@@ -26,6 +26,8 @@ const ticketsl_loja = new Sequelize(
     }
 );
 
+ticketsl_loja.dialect.supports.schemas = true;
+
 // Confere a conexão com o banco
 ticketsl_loja.authenticate()
 .then(() => {

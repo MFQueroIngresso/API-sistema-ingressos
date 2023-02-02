@@ -26,6 +26,8 @@ const ticketsl_promo = new Sequelize(
     }
 );
 
+ticketsl_promo.dialect.supports.schemas = true;
+
 // Confere a conexão com o banco
 ticketsl_promo.authenticate()
 .then(() => {
