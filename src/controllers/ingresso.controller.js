@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const { ticketsl_promo } = require('../models');
+const { tbl_itens_classes_ingressos } = require('../models/ticketsl_promo');
 const {
     tbl_ingressos,
 } = ticketsl_promo;
@@ -47,8 +48,6 @@ class IngressoController {
 
         // Defini o status do ingresso como não confirmado
         data.ing_status = 0;
-        
-        // Defini o ingresso como não enviado
         data.ing_enviado = 0;
 
         // Registra a venda
@@ -57,8 +56,20 @@ class IngressoController {
             // Ingresso registrado?
             if(!!result) {
                 await tbl_ingressos.findByPk(data.ing_cod_barras)
-                .then(data => {
-                    res.json(data);
+                .then(async ({ dataValues: ingresso }) => {
+                    // Reduz a quantidade de ingressos disponíveis em 1
+                    await tbl_itens_classes_ingressos.decrement(
+                        { itc_quantidade: 1 },
+                        { where: {
+                            itc_cod: ingresso.ing_item_classe_ingresso
+                        }}
+                    )
+                    .then(result => {
+                        // Falha ao reduzir a quantidade de ingressos?
+                        if(result[1] < 0) throw 'Falha ao reduzir a quantidade de ingressos';
+
+                        res.json(ingresso);
+                    });
                 });
             }
             else throw '';// falta uma mensagem de erro
@@ -105,7 +116,7 @@ class IngressoController {
         .catch(e => {
             console.error(e);
             res.status(400).json({
-                error: 'Erro ao Confirmar o(s) ingresso(s)',
+                error: 'Erro ao Confirmar o(s) Ingresso(s)',
                 message: JSON.stringify(e)
             });
         });
