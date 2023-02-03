@@ -275,7 +275,7 @@ class POSController {
                             const url_base = 'https://qingressos.com/image/cache';
 
                             // Endereço da imagem
-                            const image = value.lltckt_eve_categorias[0].lltckt_category.imageOutdoor;
+                            const image = value.lltckt_eve_categorias[0].lltckt_category.image;
 
                             // Link da imagem do evento
                             value.image_logo = `${url_base}/${image}`;
@@ -288,7 +288,7 @@ class POSController {
                             
                             // Adiciona as dimensões da imagem
                             const position = type.find(a => a >= 0);
-                            value.image_logo = value.image_logo.substring(0, position) + '-457x400' + value.image_logo.substring(position);
+                            value.image_logo = value.image_logo.substring(0, position) + '-638x359' + value.image_logo.substring(position);
 
 
                             /* Alterações no json */
