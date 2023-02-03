@@ -156,7 +156,7 @@ const tbl_ingressos = db_conn.define(
             type: DataTypes.INTEGER(11)
         }
     },
-    { timestamps: false }
+    { timestamps: false, schema: process.env.DB_TICKETSL_PROMO }
 );
 
 // foreign keys
