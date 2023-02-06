@@ -1,86 +1,168 @@
 const { Op } = require('sequelize');
-const { ticketsl_promo } = require('../models');
-const { tbl_itens_classes_ingressos } = require('../models/ticketsl_promo');
+const { ticketsl_promo, ticketsl_loja } = require('../models');
+
 const {
     tbl_ingressos,
+    tbl_itens_classes_ingressos,
+    tbl_classes_ingressos,
+    tbl_pos,
+    tbl_eventos
 } = ticketsl_promo;
+
+const {
+    lltckt_product
+} = ticketsl_loja;
 
 /**
  * Controlador dos Ingressos
  */
 class IngressoController {
     /**
-     * Registra uma venda de ingresso, mas ainda não confirmada pelo POS
+     * Obs.:
+     * - Depois tem de anotar o meio de pagamento, por enquanto o banco não tem salvo o meio por PIX;
+    */
+
+    /**
+     * Registra um ingresso, mas ainda não confirmado pelo POS
+     * 
+     * Obs.: depois tem de alterar para:
+     * - Registrar mais de um tipo ingresso;
+     * - Limitar o máximo de ingressos vendidos;
+     * - Verificar se o evento foi cancelado/finalizado;
      * 
      * @param {Request} req {
-     *      ing_cod_barras,
-     *      ing_evento,
-     *      ing_data_compra,
-     *      ing_item_classe_ingresso,
-     *      ing_valor,
-     *      ing_classe_ingresso,
-     *      ing_pos,
-     *      ing_pdv,
-     *      ing_rg,
-     *      ing_data_val,
-     *      ing_tipo,
-     *      ing_qtd_uso,
-     *      ing_max_uso,
-     *      ing_data_ult_uso,
-     *      ing_sexo,
-     *      ing_meia,
-     *      ing_empresa,
-     *      ing_taxa,
-     *      cln_cod,
-     *      ing_numeracao,
-     *      ing_mpgto,
-     *      ing_cartao_auth,
-     *      ing_nome,
-     *      ing_cpf,
-     *      ing_email,
-     *      ing_fone,
-     *      ing_data_nominacao
+     *      evento,
+     *      classe,
+     *      quant,
+     *      pos
      * }
      * @param {Response} res 
      */
-    static async setIngresso(req, res) {
-        const data = req.body;
+    static async register(req, res) {
+        const { evento, classe, quant, pos } = req.body;
+        const data = {
+            ing_evento: evento,          // Evento
+            ing_data_compra: new Date(), // Data da compra
+            ing_pos: pos,                // POS
+            ing_classe_ingresso: classe, // Classe do ingresso
+            ing_status: 0,               // Status do ingresso: não confirmado
+            ing_enviado: 0,              // Ingresso não enviado
+            
+            
+            ing_mpgto: 1,                // mudar depois*
 
-        // Defini o status do ingresso como não confirmado
-        data.ing_status = 0;
-        data.ing_enviado = 0;
+            ing_item_classe_ingresso: 0, //
+        };
 
-        // Registra a venda
-        await tbl_ingressos.create(req.body)
-        .then(async result => {
-            // Ingresso registrado?
-            if(!!result) {
-                await tbl_ingressos.findByPk(data.ing_cod_barras)
-                .then(async ({ dataValues: ingresso }) => {
-                    // Reduz a quantidade de ingressos disponíveis em 1
-                    await tbl_itens_classes_ingressos.decrement(
-                        { itc_quantidade: 1 },
-                        { where: {
-                            itc_cod: ingresso.ing_item_classe_ingresso
-                        }}
-                    )
-                    .then(result => {
-                        // Falha ao reduzir a quantidade de ingressos?
-                        if(result[1] < 0) throw 'Falha ao reduzir a quantidade de ingressos';
+        /**
+         * Gera os códigos de barras dos ingressos, em EAN13.
+         * 
+         * @returns {Promise<number[]>}
+         */
+        const barcodeGen = async () => {
+            const codes = []
+            const max = 100000000000;//
+            const min = 999999999999;//
 
-                        res.json(ingresso);
-                    });
+            // Auxiliar da quantidade de ingressos a serem gerados
+            let count = quant;
+
+            // Gera 'n' códigos, pela quandidade informada (count)
+            while(count > 0) {
+                // Gera um código aleatório
+                const code = Math.floor(Math.random() * (max - min)  + min);
+
+                // Verifica se o código já é utilizado
+                await tbl_ingressos.findByPk(code)
+                .then(result => {
+                    // Não é utilizado?
+                    if(!result) {
+                        // Adiciona o código e reduz a contagem
+                        codes.push(code);
+                        count--;
+                    }
+
+                    // Se o código já for utilizado, repete o loop
                 });
             }
-            else throw '';// falta uma mensagem de erro
-        })
-        .catch(e => {
+
+            return codes;
+        }
+
+        try {
+            // Classe do Ingresso
+            await tbl_classes_ingressos.findOne({
+                where: { cla_cod: classe },
+                include: {
+                    model: tbl_itens_classes_ingressos,
+                    order: [
+                        ['itc_prioridade', 'ASC'], // organizar por prioridade
+                        ['itc_quantidade', 'ASC']  //  "    "   por quantidade
+                    ],
+                    limit: 1
+                }
+            })
+            .then(({ dataValues: ing_class }) => {
+                const aux = ing_class.tbl_itens_classes_ingressos[0];
+
+                // Não há ingressos disponíveis?
+                if(aux.itc_quantidade <= 0) throw 'Não há ingressos disponíveis';
+
+                data.ing_item_classe_ingresso = aux.itc_cod; // Item da classe
+                data.ing_valor = aux.itc_valor;              // Valor do ingresso
+                data.ing_taxa = ing_class.cla_valor_taxa;    // Taxa
+                data.ing_meia = ing_class.cla_meia_inteira;  // Meia/Inteira
+            });
+
+            // Dados do POS
+            await tbl_pos.findOne({
+                where: { pos_serie: pos }
+            })
+            .then(({ dataValues: pos_data }) => {
+                data.ing_pdv = pos_data.pos_pdv;             // PDV
+                data.ing_empresa = pos_data.pos_empresa;     // Empresa
+            });
+
+
+            const ings = await barcodeGen().then(codes => (
+                codes.map(a => ({ ing_cod_barras: a, ...data }))
+            ));
+
+            // Registra a venda
+            await tbl_ingressos.bulkCreate(ings)
+            .then(async ingressos => {
+                // Algum ingresso não foi registrado?
+                if(ingressos.length < quant) throw '';// falta uma mensagem de erro
+
+                // Reduz o estoque do promo
+                await tbl_itens_classes_ingressos.decrement(
+                    { itc_quantidade: quant },
+                    { where: {
+                        itc_cod: data.ing_classe_ingresso
+                    }}
+                )
+                .then(result => {
+                    // Falha ao reduzir a quantidade de ingressos?
+                    if(result[1] < 0) throw 'Falha ao reduzir a quantidade de ingressos';
+                });
+
+                // Retorna os ingressos registrados
+                const codes = ingressos.map(a => a.ing_cod_barras);
+                await tbl_ingressos.findAll({
+                    where: {
+                        ing_cod_barras: { [Op.in]: codes }
+                    }
+                })
+                .then(data => res.json(data));
+            });
+        }
+        catch(e) {
             console.error(e);
             res.status(400).json({
-                error: 'Erro ao Registrar a Venda de Ingresso',
+                error: 'Erro ao Registrar o Ingresso',
                 message: JSON.stringify(e)
             });
-        });
+        }
     }
 
     /**
