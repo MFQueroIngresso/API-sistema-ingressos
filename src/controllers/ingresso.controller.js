@@ -224,13 +224,14 @@ class IngressoController {
     /**
      * Confirma o recebimento do(s) ingresso(s) e finaliza a compra
      * 
-     * @param {Request} req { cod }
+     * @param {Request} req { codes }
      * @param {Response} res 
      */
-    static async finishIngresso(req, res) {
-        // Organiza o(s) ingresso(s) em um array
-        const ingressos = typeof req.body.cod === "string" ? [req.body.cod] : [...req.body.cod];
+    static async received(req, res) {
+        // Organiza os ingressos em um array
+        const ingressos = typeof req.body.codes === "string" ? [req.body.codes] : [...req.body.codes];
         
+        // Atualiza o status dos ingressos para 'Ingresso Recebido'
         await tbl_ingressos.update(
             { ing_status: 2 },
             { where: {
