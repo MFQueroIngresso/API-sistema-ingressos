@@ -166,14 +166,14 @@ class IngressoController {
     }
 
     /**
-     * Confirma a venda do(s) ingresso(s) no POS, mas ainda pentende o recebimento
+     * Valida a venda de um ou mais ingressos no POS, mas ainda pentende o recebimento
      * 
-     * @param {Request} req { cod }
+     * @param {Request} req { codes }
      * @param {Response} res 
      */
-    static async confirmIngresso(req, res) {
+    static async validade(req, res) {
         // Organiza o(s) ingresso(s) em um array
-        const ingressos = typeof req.body.cod === "string" ? [req.body.cod] : [...req.body.cod];
+        const ingressos = typeof req.body.codes === "string" ? [req.body.codes] : [...req.body.codes];
         
         await tbl_ingressos.update(
             { ing_status: 1 },
@@ -182,23 +182,40 @@ class IngressoController {
             }}
         )
         .then(async result => {
-            // Os ingressos foram confirmados?
-            if(result[0] === ingressos.length) {
-                await tbl_ingressos.findAll({
-                    where: {
-                        ing_cod_barras: { [Op.in]: ingressos }
+            const status = result[0] === ingressos.length;
+
+            // Todos os ingressos foram validados?
+            if(status) {
+                // Obtêm as classes dos ingressos
+                await tbl_ingressos.aggregate(
+                    'ing_classe_ingresso',
+                    'DISTINCT',
+                    {
+                        where: {
+                            ing_cod_barras: { [Op.in]: ingressos }
+                        },
+                        plain: false
                     }
-                })
-                .then(data => {
-                    res.json(data);
+                )
+                .then(async data => {
+                    const classes = data.map(a => a.DISTINCT);
+
+                    // Reduz o estoque da loja
+                    await lltckt_product.decrement(
+                        { quantity: ingressos.length },
+                        { where: {
+                            classId: { [Op.in]: classes }
+                        }}
+                    );
                 });
             }
-            else throw '';// falta uma mensagem de erro
+
+            res.json({ status });
         })
         .catch(e => {
             console.error(e);
             res.status(400).json({
-                error: 'Erro ao Confirmar o(s) Ingresso(s)',
+                error: 'Erro ao Validar o(s) Ingresso(s)',
                 message: JSON.stringify(e)
             });
         });
