@@ -172,7 +172,7 @@ class IngressoController {
      * @param {Response} res 
      */
     static async validade(req, res) {
-        // Organiza o(s) ingresso(s) em um array
+        // Organiza os ingressos em um array
         const ingressos = typeof req.body.codes === "string" ? [req.body.codes] : [...req.body.codes];
         
         await tbl_ingressos.update(
@@ -251,42 +251,142 @@ class IngressoController {
     }
 
     /**
-     * Cancela uma venda de ingresso
+     * Cancela um ou mais ingressos
      * 
-     * @param {Request} req { cod }
+     * @param {Request} req { codes }
      * @param {Response} res 
      */
-    static async cancelIngresso(req, res) {
-        const { ing_cod_barras, itc_cod } = req.body;
+    static async cancel(req, res) {
+        // Organiza os ingressos em um array
+        const codes = typeof req.body.codes === "string" ? [req.body.codes] : [...req.body.codes];
 
-        await tbl_ingressos.findByPk(ing_cod_barras)
-        .then(async ({ dataValues: ingresso }) => {
-            await tbl_ingressos.destroy({
-                where: { ing_cod_barras }
-            })
+        // Obtêm os ingressos a serem cancelados
+        const ingressos = await tbl_ingressos.findAll({
+            where: {
+                ing_cod_barras: { [Op.in]: codes },
+                ing_status: { [Op.notLike]: 3 }
+            }
+        });
+
+        // Define o status dos ingressos como 'Cancelado(s)'
+        await tbl_ingressos.update(
+            { ing_status: 3 },
+            { where: {
+                ing_cod_barras: { [Op.in]: codes }
+            }}
+        )
+        .then(async result => {
+            // Algum ingresso foi cancelado?
+            if(!!result[0]) {
+                // Todos os ingressos foram cancelados?
+                if(result[0] === ingressos.length) {
+                    // Incrementa os estoques para cada ingresso cancelado
+                    const increment = [
+                        // Estoques no 'ticketsl_promo'
+                        new Promise(async (resolve, reject) => (
+                            resolve(ingressos.map(async ingresso => (
+                                await tbl_itens_classes_ingressos.increment(
+                                    { itc_quantidade: 1 },
+                                    { where: {
+                                        itc_cod: ingresso.ing_item_classe_ingresso
+                                    }}
+                                )
+                                .then(a => a)
+                                .catch(e => reject(e))
+                            )))
+                        )),
+                        // Estoques no 'ticketsl_loja'
+                        new Promise(async (resolve, reject) => (
+                            resolve(ingressos.map(async ingresso => (
+                                await lltckt_product.increment(
+                                    { quantity: 1 },
+                                    { where: {
+                                        classId: ingresso.ing_classe_ingresso
+                                    }}
+                                )
+                                .then(a => a)
+                                .catch(e => reject(e))
+                            )))
+                        ))
+                    ]
+
+                    await Promise.all(increment).then(result => {
+                        res.json({ status: !!result.length });
+                    });
+                }
+            }
+            else res.json({ status: result[0] === ingressos.length })
+        })
+        .catch(e => {
+            console.error(e);
+            res.status(400).json({
+                error: 'Erro ao Cancelar o(s) Ingresso(s)',
+                message: JSON.stringify(e)
+            });
+        });
+    }
+
+    /**
+     * Cancela a última venda do POS
+     * 
+     * Obs.: talvez atualizar para cancelar os 'n' últimos vendidos,
+     * sendo 'n' informado no request
+     * 
+     * @param {Request} req { pos }
+     * @param {Response} res 
+     */
+    static async cancelLast(req, res) {
+        const { pos } = req.body;
+
+        // Encontra a última venda do POS
+        await tbl_ingressos.findOne({
+            where: {
+                ing_pos: pos
+            },
+            order: [ ['ing_data_compra', 'DESC'] ]
+        })
+        .then(async ingresso => {
+            if(ingresso.ing_status === 3) throw 'Ingresso já cancelado';
+            
+            await tbl_ingressos.update(
+                { ing_status: 3 },
+                { where: {
+                    ing_cod_barras: ingresso.ing_cod_barras
+                }}
+            )
             .then(async result => {
-                // Ingresso não deletado
-                if(!result) throw 'Falha ao remover o Ingresso';
-    
-                // Aumenta a quantidade de ingressos disponíveis em 1
-                await tbl_itens_classes_ingressos.increment(
-                    { itc_quantidade: 1 },
-                    { where: {
-                        itc_cod: ingresso.ing_item_classe_ingresso
-                    }}
-                )
-                .then(result => {
-                    res.json({ status: result[1] < 0 });
-                });
+                const status = !!result[0];
+
+                // O ingresso foi cancelado?
+                if(status) {
+                    // Incrementa os estoques:
+
+                    // Estoques no 'ticketsl_promo'
+                    await tbl_itens_classes_ingressos.increment(
+                        { itc_quantidade: 1 },
+                        { where: {
+                            itc_cod: ingresso.ing_item_classe_ingresso
+                        }}
+                    );
+
+                    // Estoques no 'ticketsl_loja'
+                    await lltckt_product.increment(
+                        { quantity: 1 },
+                        { where: {
+                            classId: ingresso.ing_classe_ingresso
+                        }}
+                    );
+                }
+                res.json({ status })
             });
         })
         .catch(e => {
             console.error(e);
             res.status(400).json({
-                error: 'Erro ao Cancelar o Ingresso',
+                error: 'Erro ao Cancelar o Último Ingresso Vendido',
                 message: JSON.stringify(e)
             });
-        });
+        })
     }
 }
 
