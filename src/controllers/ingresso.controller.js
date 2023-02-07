@@ -90,7 +90,18 @@ class IngressoController {
         }
 
         try {
-            // Classe do Ingresso
+            // Verifica se o Evento já foi finalizado
+            await tbl_eventos.findOne({
+                where: {
+                    eve_cod: evento
+                },
+                attributes: ['eve_fim']
+            })
+            .then(evento => {
+                if(evento.eve_fim < Date.now()) throw 'Evento finalizado';
+            });
+
+            // Obtêm a classe do Ingresso
             await tbl_classes_ingressos.findOne({
                 where: { cla_cod: classe },
                 include: {
@@ -114,7 +125,7 @@ class IngressoController {
                 data.ing_meia = ing_class.cla_meia_inteira;  // Meia/Inteira
             });
 
-            // Dados do POS
+            // Obtêm os dados do POS
             await tbl_pos.findOne({
                 where: { pos_serie: pos }
             })
@@ -123,7 +134,7 @@ class IngressoController {
                 data.ing_empresa = pos_data.pos_empresa;     // Empresa
             });
 
-
+            // Gera os códigos de barras para cada ingresso
             const ings = await barcodeGen().then(codes => (
                 codes.map(a => ({ ing_cod_barras: a, ...data }))
             ));
@@ -143,7 +154,7 @@ class IngressoController {
                 )
                 .then(result => {
                     // Falha ao reduzir a quantidade de ingressos?
-                    if(result[1] < 0) throw 'Falha ao reduzir a quantidade de ingressos';
+                    if(result[1] < 0) throw 'Falha ao reservar os ingressos';
                 });
 
                 // Retorna os ingressos registrados
