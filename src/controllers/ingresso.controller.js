@@ -95,10 +95,10 @@ class IngressoController {
                 where: {
                     eve_cod: evento
                 },
-                attributes: ['eve_fim']
+                attributes: ['eve_ativo']
             })
             .then(evento => {
-                if(evento.eve_fim < Date.now()) throw 'Evento finalizado';
+                if(!evento.eve_ativo) throw 'Evento finalizado';
             });
 
             // Obtêm a classe do Ingresso
