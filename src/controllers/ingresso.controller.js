@@ -104,11 +104,22 @@ class IngressoController {
             // Obtêm a classe do Ingresso
             await tbl_classes_ingressos.findOne({
                 where: { cla_cod: classe },
+                attributes: [
+                    'cla_cod',
+                    'cla_valor_taxa',
+                    'cla_meia_inteira'
+                ],
                 include: {
                     model: tbl_itens_classes_ingressos,
                     order: [
                         ['itc_prioridade', 'ASC'], // organizar por prioridade
                         ['itc_quantidade', 'ASC']  //  "    "   por quantidade
+                    ],
+                    attributes: [
+                        'itc_classe',
+                        'itc_quantidade',
+                        'itc_cod',
+                        'itc_valor'
                     ],
                     limit: 1
                 }
@@ -127,7 +138,11 @@ class IngressoController {
 
             // Obtêm os dados do POS
             await tbl_pos.findOne({
-                where: { pos_serie: pos }
+                where: { pos_serie: pos },
+                attributes: [
+                    'pos_pdv',
+                    'pos_empresa'
+                ]
             })
             .then(({ dataValues: pos_data }) => {
                 data.ing_pdv = pos_data.pos_pdv;             // PDV
@@ -143,18 +158,18 @@ class IngressoController {
             await tbl_ingressos.bulkCreate(ings)
             .then(async ingressos => {
                 // Algum ingresso não foi registrado?
-                if(ingressos.length < quant) throw '';// falta uma mensagem de erro
+                if(ingressos.length < quant) throw 'Não foi possivel registrar o(s) Ingresso(s)';
 
                 // Reduz o estoque do promo
                 await tbl_itens_classes_ingressos.decrement(
                     { itc_quantidade: quant },
                     { where: {
-                        itc_cod: data.ing_classe_ingresso
+                        itc_cod: data.ing_item_classe_ingresso
                     }}
                 )
                 .then(result => {
                     // Falha ao reduzir a quantidade de ingressos?
-                    if(result[1] < 0) throw 'Falha ao reservar os ingressos';
+                    if(result[1] < 0) throw 'Falha ao reservar o(s) Ingresso(s)';
                 });
 
                 // Retorna os ingressos registrados
