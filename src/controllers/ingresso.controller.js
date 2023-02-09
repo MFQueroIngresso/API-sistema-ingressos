@@ -280,6 +280,37 @@ class IngressoController {
     }
 
     /**
+     * Obtêm os últimos ingresso registrados, mas não validados, nas últimas 5 horas.
+     * 
+     * @param {Request} req { pos }
+     * @param {Response} res 
+     */
+    static async findLast(req, res) {
+        const { pos } = req.body;
+
+        // Margem de tempo: 5 horas
+        const time = new Date();
+        time.setHours(time.getHours() - 5);
+
+        // Obtêm os ingresso não validados na margem de tempo
+        await tbl_ingressos.findAll({
+            where: {
+                ing_pos: pos,
+                ing_status: 0, // não validado
+                ing_data_compra: { [Op.gte]: time }
+            }
+        })
+        .then(data => res.json(data))
+        .catch(e => {
+            console.error(e);
+            res.status(400).json({
+                error: 'Erro ao Obter os Ingressos',
+                message: JSON.stringify(e)
+            });
+        });
+    }
+
+    /**
      * Cancela um ou mais ingressos
      * 
      * @param {Request} req { codes }
