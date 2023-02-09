@@ -199,7 +199,7 @@ class IngressoController {
      */
     static async validade(req, res) {
         // Organiza os ingressos em um array
-        const ingressos = typeof req.body.codes === "array" ? [...req.body.codes] : [req.body.codes];
+        const ingressos = typeof req.body.codes === "object" ? [...req.body.codes] : [req.body.codes];
         
         await tbl_ingressos.update(
             { ing_status: 1 },
@@ -208,35 +208,35 @@ class IngressoController {
             }}
         )
         .then(async result => {
-            const status = result[0] === ingressos.length;
-
-            // Todos os ingressos foram validados?
-            if(status) {
-                // Obtêm as classes dos ingressos
-                await tbl_ingressos.aggregate(
-                    'ing_classe_ingresso',
-                    'DISTINCT',
-                    {
-                        where: {
-                            ing_cod_barras: { [Op.in]: ingressos }
-                        },
-                        plain: false
-                    }
-                )
-                .then(async data => {
-                    const classes = data.map(a => a.DISTINCT);
-
-                    // Reduz o estoque da loja
-                    await lltckt_product.decrement(
-                        { quantity: ingressos.length },
-                        { where: {
-                            classId: { [Op.in]: classes }
-                        }}
-                    );
-                });
+            // Algum ingresso não foi validado?
+            if(result[0] !== ingressos.length) {
+                throw `${ingressos.length - result[0]} Ingresso(s) não validado(s)`;
             }
 
-            res.json({ status });
+            // Obtêm as classes dos ingressos
+            await tbl_ingressos.aggregate(
+                'ing_classe_ingresso',
+                'DISTINCT',
+                {
+                    where: {
+                        ing_cod_barras: { [Op.in]: ingressos }
+                    },
+                    plain: false
+                }
+            )
+            .then(async data => {
+                const classes = data.map(a => a.DISTINCT);
+
+                // Reduz o estoque da loja
+                await lltckt_product.decrement(
+                    { quantity: ingressos.length },
+                    { where: {
+                        classId: { [Op.in]: classes }
+                    }}
+                );
+            });
+
+            res.json({ status: !!result[0] });
         })
         .catch(e => {
             console.error(e);
@@ -255,7 +255,7 @@ class IngressoController {
      */
     static async received(req, res) {
         // Organiza os ingressos em um array
-        const ingressos = typeof req.body.codes === "array" ? [...req.body.codes] : [req.body.codes];
+        const ingressos = typeof req.body.codes === "object" ? [...req.body.codes] : [req.body.codes];
         
         // Atualiza o status dos ingressos para 'Ingresso Recebido'
         await tbl_ingressos.update(
@@ -284,7 +284,7 @@ class IngressoController {
      */
     static async cancel(req, res) {
         // Organiza os ingressos em um array
-        const codes = typeof req.body.codes === "array" ? [...req.body.codes] : [req.body.codes];
+        const codes = typeof req.body.codes === "object" ? [...req.body.codes] : [req.body.codes];
 
         try {
             // Obtêm os ingressos a serem cancelados
