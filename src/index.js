@@ -2,9 +2,6 @@ const express = require('express');
 const cors = require('cors');
 require("dotenv").config();
 
-// Carregando os modelos
-require('./models');
-
 // Definindo o serviço
 const app = express();
 

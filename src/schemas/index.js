@@ -1,4 +1,4 @@
-// Modelos do banco no Sequelize
+// Schemas do banco no Sequelize
 
 const ticketsl_loja = require('./ticketsl_loja');
 const ticketsl_promo = require('./ticketsl_promo');

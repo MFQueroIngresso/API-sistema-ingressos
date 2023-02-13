@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { ticketsl_promo, ticketsl_loja } = require('../models');
+const { ticketsl_promo, ticketsl_loja } = require('../schemas');
 
 const {
     tbl_ingressos,

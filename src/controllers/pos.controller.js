@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { ticketsl_promo, ticketsl_loja } = require('../models');
+const { ticketsl_promo, ticketsl_loja } = require('../schemas');
 const { SHA256, AES } = require('crypto-js');
 
 const {

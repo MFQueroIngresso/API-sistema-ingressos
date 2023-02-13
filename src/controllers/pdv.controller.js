@@ -1,4 +1,4 @@
-const { ticketsl_promo } = require('../models');
+const { ticketsl_promo } = require('../schemas');
 const {
     tbl_pdvs
 } = ticketsl_promo;
