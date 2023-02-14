@@ -31,15 +31,16 @@ class IngressoController {
      *      evento,
      *      classe,
      *      quant,
+     *      pag,
      *      pos
      * }
      * @param {Response} res 
      */
     static async register(req, res) {
-        const { evento, classe, quant, pos } = req.body;
+        const { evento, classe, quant, pag, pos } = req.body;
         const ingresso = new Ingresso();
 
-        await ingresso.createIngressos(evento, classe, quant, pos)
+        await ingresso.createIngressos(evento, classe, quant, pag, pos)
         .then(data => res.json(data))
         .catch(e => {
             console.error(e);

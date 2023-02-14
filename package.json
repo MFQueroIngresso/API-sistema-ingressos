@@ -1,6 +1,6 @@
 {
   "name": "api-qingressos",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "API da Quero Ingresso - Promo",
   "main": "index.js",
   "scripts": {
@@ -18,6 +18,7 @@
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "mysql2": "^3.0.1",
+    "node-schedule": "^2.1.1",
     "sequelize": "^6.28.0"
   },
   "devDependencies": {

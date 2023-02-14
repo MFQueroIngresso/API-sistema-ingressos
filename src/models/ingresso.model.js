@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const { ticketsl_promo, ticketsl_loja } = require('../schemas');
+const schedule = require('node-schedule');
 
 const {
     tbl_ingressos,
@@ -152,9 +153,19 @@ class IngressoModel {
      * @param {number} evento Id do Evento
      * @param {number} classe Classe do Ingresso
      * @param {number} quant quant > 0
+     * @param {number} pag Meio de pagamento:
+     * 
+     * null - Pix; (temporário)
+     * 
+     * 1 - Dinheiro;
+     * 
+     * 2 - Crédito;
+     * 
+     * 3 - Débito.
+     * 
      * @param {string} pos pos_serie do POS
      */
-    async createIngressos(evento, classe, quant, pos) {
+    async createIngressos(evento, classe, quant, pag, pos) {
 
         // Quantidade de ingressos <= 0?
         if(quant <= 0) throw 'Nenhum ingresso registrado';
@@ -167,9 +178,7 @@ class IngressoModel {
             ing_classe_ingresso: classe, // Classe do ingresso
             ing_status: 0,               // Status do ingresso: não confirmado
             ing_enviado: 0,              // Ingresso não enviado
-            
-            
-            ing_mpgto: 1,                // mudar depois*
+            ing_mpgto: pag,              // Meio de pagamento
 
             ing_item_classe_ingresso: 0, //
         };
@@ -235,24 +244,68 @@ class IngressoModel {
 
         // Registra a venda
         return await tbl_ingressos.bulkCreate(ings)
-        .then(async ingressos => {
+        .then(async data => {
             // Algum ingresso não foi registrado?
-            if(ingressos.length < quant) throw 'Não foi possivel registrar todos os Ingressos';
+            if(data.length < quant) throw 'Não foi possivel registrar todos os Ingressos';
 
-            // Reduz o estoque do promo
-            this.promoIncrement(-quant, data.ing_item_classe_ingresso)
-            .then(result => {
-                // O estoque não foi reduzido?
-                if(result <= 0) throw 'Falha ao reservar o(s) Ingresso(s)';
+            // Reduz o estoque 
+            data.map(async ({ ing_item_classe_ingresso: item, ing_cod_barras: cod }) => {
+                // Reduz o estoque do promo
+                await this.promoIncrement(-1, item)
+                .then(result => {
+                    // O estoque não foi reduzido?
+                    if(result <= 0) {
+                        throw `Falha ao reservar o Ingresso: ${cod}`;
+                    };
+                });
             });
 
             // Retorna os ingressos registrados
-            const codes = ingressos.map(a => a.ing_cod_barras);
-            return await tbl_ingressos.findAll({
+            const codes = data.map(a => a.ing_cod_barras);
+            const ingressos = await tbl_ingressos.findAll({
                 where: {
                     ing_cod_barras: { [Op.in]: codes }
                 }
             });
+
+            // Inicia as schedule de cancelamento
+            ingressos.map(ing => {
+                // Quando o ingresso será cancelado
+                const date = new Date();
+
+                const start = () => {
+                    schedule.scheduleJob(date, async () => {
+                        await this.updateStatus([ing.ing_cod_barras], 3);
+                    });
+                }
+
+                // Define o tempo de espera máximo pela confirmação do pagamento
+                switch (ing.ing_mpgto) {
+                    // Pix
+                    case null:
+                        /* date.setMinutes(date.getMinutes() + 30);
+                        start();
+                        break; */
+                    
+                    // Dinheiro
+                    case 1:
+                        date.setMinutes(date.getMinutes() + 30);
+                        start();
+                        break;
+
+                    // Crédito
+                    case 2:
+                        break;
+
+                    // Débito
+                    case 3:
+                        break;
+                
+                    default: break;
+                }
+            });
+
+            return ingressos;
         });
     }
 
