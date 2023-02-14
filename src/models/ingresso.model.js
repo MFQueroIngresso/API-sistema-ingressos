@@ -97,7 +97,7 @@ class IngressoModel {
      * 
      * @param {number} evento 
      */
-    async validarEventoFinalizado(evento) {
+    async verificarEventoFinalizado(evento) {
         await tbl_eventos.findOne({
             where: {
                 eve_cod: evento
@@ -106,6 +106,26 @@ class IngressoModel {
         })
         .then(evento => {
             if(!evento.eve_ativo) throw 'Evento finalizado';
+        });
+    }
+
+    /**
+     * Verifica se os ingressos estão cancelados.
+     * 
+     * @param {string[]} ingressos 
+     */
+    async verificarIngressoCancelado(ingressos) {
+        await tbl_ingressos.findAll({
+            where: {
+                ing_cod_barras: { [Op.in]: ingressos },
+                ing_status: 3
+            }
+        })
+        .then(data => {
+            // Há ingressos cancelados?
+            if(data.length) {
+                throw `Ingressos cancelados (${data.length}): ${data.map(a => a.ing_cod_barras).toString()}`
+            }
         });
     }
 
@@ -184,7 +204,7 @@ class IngressoModel {
         };
 
         // Verifica se o Evento já foi finalizado
-        this.validarEventoFinalizado(evento);
+        this.verificarEventoFinalizado(evento);
 
         // Obtêm a classe do Ingresso
         await tbl_classes_ingressos.findOne({
@@ -322,6 +342,10 @@ class IngressoModel {
      * @param {string[]} ingressos Códigos de barras dos ingressos
      */
     async validarIngressos(ingressos) {
+        
+        // Verifica se há ingressos cancelados
+        this.verificarIngressoCancelado(ingressos);
+
         return await this.updateStatus(ingressos, 1)
         .then(async () => {
 
