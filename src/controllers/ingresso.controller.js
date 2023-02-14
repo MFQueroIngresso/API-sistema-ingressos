@@ -1,4 +1,6 @@
 const { Op } = require('sequelize');
+const { Ingresso } = require('../models');
+
 const { ticketsl_promo, ticketsl_loja } = require('../schemas');
 
 const {
@@ -23,12 +25,7 @@ class IngressoController {
     */
 
     /**
-     * Registra um ingresso, mas ainda não confirmado pelo POS
-     * 
-     * Obs.: depois tem de alterar para:
-     * - Registrar mais de um tipo ingresso;
-     * - Limitar o máximo de ingressos vendidos;
-     * - Verificar se o evento foi cancelado/finalizado;
+     * Registra ingressos, mas ainda não confirmados pelo POS
      * 
      * @param {Request} req {
      *      evento,
@@ -40,158 +37,17 @@ class IngressoController {
      */
     static async register(req, res) {
         const { evento, classe, quant, pos } = req.body;
-        const data = {
-            ing_evento: evento,          // Evento
-            ing_data_compra: new Date(), // Data da compra
-            ing_pos: pos,                // POS
-            ing_classe_ingresso: classe, // Classe do ingresso
-            ing_status: 0,               // Status do ingresso: não confirmado
-            ing_enviado: 0,              // Ingresso não enviado
-            
-            
-            ing_mpgto: 1,                // mudar depois*
+        const ingresso = new Ingresso();
 
-            ing_item_classe_ingresso: 0, //
-        };
-
-        /**
-         * Gera os códigos de barras dos ingressos, em EAN13.
-         * 
-         * @returns {Promise<number[]>}
-         */
-        const barcodeGen = async () => {
-            const codes = []
-            const max = 100000000000;//
-            const min = 999999999999;//
-
-            // Auxiliar da quantidade de ingressos a serem gerados
-            let count = quant;
-
-            // Gera 'n' códigos, pela quandidade informada (count)
-            while(count > 0) {
-                // Gera um código aleatório
-                const code = Math.floor(Math.random() * (max - min)  + min);
-
-                // Verifica se o código já é utilizado
-                await tbl_ingressos.findByPk(code)
-                .then(result => {
-                    // Não é utilizado?
-                    if(!result) {
-                        // Adiciona o código e reduz a contagem
-                        codes.push(code);
-                        count--;
-                    }
-
-                    // Se o código já for utilizado, repete o loop
-                });
-            }
-
-            return codes;
-        }
-
-        try {
-            // Verifica se o Evento já foi finalizado
-            await tbl_eventos.findOne({
-                where: {
-                    eve_cod: evento
-                },
-                attributes: ['eve_ativo']
-            })
-            .then(evento => {
-                if(!evento.eve_ativo) throw 'Evento finalizado';
-            });
-
-            // Obtêm a classe do Ingresso
-            await tbl_classes_ingressos.findOne({
-                where: { cla_cod: classe },
-                attributes: [
-                    'cla_cod',
-                    'cla_valor_taxa',
-                    'cla_meia_inteira'
-                ],
-                include: {
-                    model: tbl_itens_classes_ingressos,
-                    order: [
-                        ['itc_prioridade', 'ASC'], // organizar por prioridade
-                        ['itc_quantidade', 'ASC']  //  "    "   por quantidade
-                    ],
-                    attributes: [
-                        'itc_classe',
-                        'itc_quantidade',
-                        'itc_cod',
-                        'itc_valor'
-                    ],
-                    limit: 1
-                }
-            })
-            .then(({ dataValues: ing_class }) => {
-                const aux = ing_class.tbl_itens_classes_ingressos[0];
-
-                // Não há ingressos disponíveis?
-                if(aux.itc_quantidade <= 0) throw 'Não há ingressos disponíveis';
-
-                // Há menos ingressos em estoque do que é requerido?
-                if(aux.itc_quantidade < quant) throw 'Ingressos insuficientes em estoque';
-
-                data.ing_item_classe_ingresso = aux.itc_cod; // Item da classe
-                data.ing_valor = aux.itc_valor;              // Valor do ingresso
-                data.ing_taxa = ing_class.cla_valor_taxa;    // Taxa
-                data.ing_meia = ing_class.cla_meia_inteira;  // Meia/Inteira
-            });
-
-            // Obtêm os dados do POS
-            await tbl_pos.findOne({
-                where: { pos_serie: pos },
-                attributes: [
-                    'pos_pdv',
-                    'pos_empresa'
-                ]
-            })
-            .then(({ dataValues: pos_data }) => {
-                data.ing_pdv = pos_data.pos_pdv;             // PDV
-                data.ing_empresa = pos_data.pos_empresa;     // Empresa
-            });
-
-            // Gera os códigos de barras para cada ingresso
-            const ings = await barcodeGen().then(codes => (
-                codes.map(a => ({ ing_cod_barras: a, ...data }))
-            ));
-
-            // Registra a venda
-            await tbl_ingressos.bulkCreate(ings)
-            .then(async ingressos => {
-                // Algum ingresso não foi registrado?
-                if(ingressos.length < quant) throw 'Não foi possivel registrar o(s) Ingresso(s)';
-
-                // Reduz o estoque do promo
-                await tbl_itens_classes_ingressos.decrement(
-                    { itc_quantidade: quant },
-                    { where: {
-                        itc_cod: data.ing_item_classe_ingresso
-                    }}
-                )
-                .then(result => {
-                    // Falha ao reduzir a quantidade de ingressos?
-                    if(result[1] < 0) throw 'Falha ao reservar o(s) Ingresso(s)';
-                });
-
-                // Retorna os ingressos registrados
-                const codes = ingressos.map(a => a.ing_cod_barras);
-                await tbl_ingressos.findAll({
-                    where: {
-                        ing_cod_barras: { [Op.in]: codes }
-                    }
-                })
-                .then(data => res.json(data));
-            });
-        }
-        catch(e) {
+        await ingresso.createIngressos(evento, classe, quant, pos)
+        .then(data => res.json(data))
+        .catch(e => {
             console.error(e);
             res.status(400).json({
                 error: 'Erro ao Registrar o Ingresso',
                 message: JSON.stringify(e)
             });
-        }
+        });
     }
 
     /**
