@@ -109,6 +109,38 @@ class IngressoModel {
     }
 
     /**
+     * Altera o status (ing_status) dos ingressos informados.
+     * 
+     * @param {string[]} ingressos Códigos de barras dos ingressos
+     * @param {number} status 
+     * 0 - Ingresso não confirmado pelo POS;
+     * 
+     * 1 - Ingresso vendido, mas pendente recebimento no evento;
+     * 
+     * 2 - Ingresso recebido no evento;
+     * 
+     * 3 - Ingresso cancelado.
+     * 
+     * @returns {Promise<number>} Total de rows alteradas
+     */
+    async updateStatus(ingressos, status) {
+        await tbl_ingressos.update(
+            { ing_status: status },
+            { where: {
+                ing_cod_barras: { [Op.in]: ingressos }
+            }}
+        )
+        .then(async result => {
+            // Algum ingresso não foi validado?
+            if(result[0] !== ingressos.length) {
+                throw `${ingressos.length - result[0]} Ingresso(s) não validado(s)`;
+            }
+
+            return result[0];
+        });
+    }
+
+    /**
      * Registra determinada quantidade de ingressos, 
      * mas ainda não confirmados pelo POS.
      * 
@@ -144,7 +176,7 @@ class IngressoModel {
 
         // Verifica se o Evento já foi finalizado
         this.validarEventoFinalizado(evento);
-        
+
         // Obtêm a classe do Ingresso
         await tbl_classes_ingressos.findOne({
             where: { cla_cod: classe },
@@ -210,7 +242,7 @@ class IngressoModel {
             // Reduz o estoque do promo
             this.promoIncrement(-quant, data.ing_item_classe_ingresso)
             .then(result => {
-                // O não estoque foi reduzido?
+                // O estoque não foi reduzido?
                 if(result <= 0) throw 'Falha ao reservar o(s) Ingresso(s)';
             });
 
@@ -221,6 +253,41 @@ class IngressoModel {
                     ing_cod_barras: { [Op.in]: codes }
                 }
             });
+        });
+    }
+
+    /**
+     * Valida a venda dos ingressos informados,
+     * mas ainda pendente o recebimento/impressão.
+     * 
+     * @param {string[]} ingressos Códigos de barras dos ingressos
+     */
+    async validarIngressos(ingressos) {
+        return await this.updateStatus(ingressos, 1)
+        .then(async result => {
+
+            // Obtêm as classes dos ingressos
+            await tbl_ingressos.findAll({
+                where: {
+                    ing_cod_barras: { [Op.in]: ingressos }
+                },
+                attributes: ['ing_classe_ingresso']
+            })
+            .then(data => {
+                data.map(async ({ ing_classe_ingresso: classe }) => {
+                    // Reduz o estoque da loja
+                    await this.lojaIncrement(-1, classe)
+                    .then(result => {
+                        // O estoque não foi reduzido?
+                        if(result <= 0) {
+                            throw 'Falha ao dar baixa no estoque da loja, ' +
+                            `classe: ${classe}`;
+                        };
+                    });
+                });
+            });
+
+            return true;
         });
     }
 }
