@@ -80,17 +80,13 @@ class IngressoController {
      */
     static async received(req, res) {
         // Organiza os ingressos em um array
-        const ingressos = typeof req.body.codes === "object" ? [...req.body.codes] : [req.body.codes];
+        const codes = typeof req.body.codes === "object" ? [...req.body.codes] : [req.body.codes];
+        const ingresso = new Ingresso();
         
         // Atualiza o status dos ingressos para 'Ingresso Recebido'
-        await tbl_ingressos.update(
-            { ing_status: 2 },
-            { where: {
-                ing_cod_barras: { [Op.in]: ingressos }
-            }}
-        )
+        ingresso.ingressoRecebido(codes)
         .then(result => {
-            res.json({ status: result[0] === ingressos.length });
+            res.json({ status: result });
         })
         .catch(e => {
             console.error(e);

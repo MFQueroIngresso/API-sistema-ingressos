@@ -264,7 +264,7 @@ class IngressoModel {
      */
     async validarIngressos(ingressos) {
         return await this.updateStatus(ingressos, 1)
-        .then(async result => {
+        .then(async () => {
 
             // Obtêm as classes dos ingressos
             await tbl_ingressos.findAll({
@@ -289,6 +289,15 @@ class IngressoModel {
 
             return true;
         });
+    }
+
+    /**
+     * Confirma o recebimento dos ingressos informados.
+     * 
+     * @param {string[]} ingressos
+     */
+    async ingressoRecebido(ingressos) {
+        return await this.updateStatus(ingressos, 2);
     }
 }
 
