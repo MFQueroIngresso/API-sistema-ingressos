@@ -275,7 +275,13 @@ class IngressoModel {
 
                 const start = () => {
                     schedule.scheduleJob(date, async () => {
-                        await this.updateStatus([ing.ing_cod_barras], 3);
+                        await tbl_ingressos.update(
+                            { ing_status: 3 },
+                            { where: {
+                                ing_cod_barras: ing.ing_cod_barras,
+                                ing_status: 0
+                            }}
+                        );
                     });
                 }
 
