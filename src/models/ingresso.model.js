@@ -411,6 +411,58 @@ class IngressoModel {
         return await this.updateStatus(ingressos, 2)
         .then(result => result === ingressos.length);
     }
+
+    /**
+     * Cancela os ingressos informados.
+     * 
+     * @param {string[]} ingressos 
+     */
+    async cancelarIngressos(ingressos) {
+
+        // Obtêm os ingressos a serem cancelados
+        const data = await tbl_ingressos.findAll({
+            where: {
+                ing_cod_barras: { [Op.in]: codes },
+                ing_status: { [Op.notLike]: 3 }
+            },
+            attributes: [
+                'ing_cod_barras',
+                'ing_item_classe_ingresso',
+                'ing_classe_ingresso',
+                'ing_status'
+            ]
+        });
+
+        return await this.updateStatus(data.map(a => a.ing_cod_barras), 3, 'Erro ao cancelar os Ingressos')
+        .then(async result => {
+            // Algum ingresso foi cancelado?
+            if(!!result) {
+                if(result === ingressos.length) {
+                    const estoqueIncrement = data.map(async ingresso => {
+                        await this.promoIncrement(1, ingresso.ing_item_classe_ingresso)
+                        .then(a => {
+                            if(!a) throw `Falha ao reestocar o promo`;
+                        });
+
+                        if(ingresso.ing_status >= 1) {
+                            await this.lojaIncrement(1, ingresso.ing_classe_ingresso)
+                            .then(a => {
+                                if(!a) throw `Falha ao reestocar a loja`;
+                            });
+                        }
+                    });
+
+                    return await Promise.all(estoqueIncrement).then(() => {
+                        return !!result;
+                    });
+                }
+                else
+                    throw `${ingressos.length - result} Ingresso(s) não cancelado(s)`;
+            }
+            else
+                throw `Nenhum Ingresso foi cancelado`;
+        });
+    }
 }
 
 module.exports = IngressoModel;
