@@ -447,7 +447,7 @@ class IngressoModel {
         // Obtêm os ingressos a serem cancelados
         const data = await tbl_ingressos.findAll({
             where: {
-                ing_cod_barras: { [Op.in]: codes },
+                ing_cod_barras: { [Op.in]: ingressos },
                 ing_status: { [Op.notLike]: 3 }
             },
             attributes: [
@@ -466,13 +466,13 @@ class IngressoModel {
                     const estoqueIncrement = data.map(async ingresso => {
                         await this.promoIncrement(1, ingresso.ing_item_classe_ingresso)
                         .then(a => {
-                            if(!a) throw `Falha ao reestocar o promo`;
+                            if(!!a) throw `Falha ao reestocar o promo`;
                         });
 
                         if(ingresso.ing_status >= 1) {
                             await this.lojaIncrement(1, ingresso.ing_classe_ingresso)
                             .then(a => {
-                                if(!a) throw `Falha ao reestocar a loja`;
+                                if(!!a) throw `Falha ao reestocar a loja`;
                             });
                         }
                     });
@@ -487,6 +487,31 @@ class IngressoModel {
             else
                 throw `Nenhum Ingresso foi cancelado`;
         });
+    }
+
+    /**
+     * Cancela as últimas vendas de ingressos do POS.
+     * 
+     * @param {string} pos pos_serie do POS.
+     * @param {number|undefined} total Total de ingressos a serem cancelados.
+     * Se não for definido, `total = 1`.
+     */
+    async cancelarUltimo(pos, total) {
+
+        // Total de Ingressos a serem cancelados
+        const count = total ?? 1;
+
+        return await tbl_ingressos.findAll({
+            where: {
+                ing_pos: pos
+            },
+            attributes: [ 'ing_cod_barras', 'ing_data_compra' ],
+            order: [ ['ing_data_compra', 'DESC'] ],
+            limit: count
+        })
+        .then(async data => (
+            await this.cancelarIngressos(data.map(a => a.ing_cod_barras))
+        ));
     }
 }
 

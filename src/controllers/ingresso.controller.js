@@ -184,49 +184,10 @@ class IngressoController {
      */
     static async cancelLast(req, res) {
         const { pos } = req.body;
+        const ingresso = new Ingresso();
 
-        // Encontra a última venda do POS
-        await tbl_ingressos.findOne({
-            where: {
-                ing_pos: pos
-            },
-            order: [ ['ing_data_compra', 'DESC'] ]
-        })
-        .then(async ingresso => {
-            if(ingresso.ing_status === 3) throw 'Ingresso já cancelado';
-            
-            await tbl_ingressos.update(
-                { ing_status: 3 },
-                { where: {
-                    ing_cod_barras: ingresso.ing_cod_barras
-                }}
-            )
-            .then(async result => {
-                const status = !!result[0];
-
-                // O ingresso foi cancelado?
-                if(status) {
-                    // Incrementa os estoques:
-
-                    // Estoques no 'ticketsl_promo'
-                    await tbl_itens_classes_ingressos.increment(
-                        { itc_quantidade: 1 },
-                        { where: {
-                            itc_cod: ingresso.ing_item_classe_ingresso
-                        }}
-                    );
-
-                    // Estoques no 'ticketsl_loja'
-                    ingresso.ing_status >= 1 && await lltckt_product.increment(
-                        { quantity: 1 },
-                        { where: {
-                            classId: ingresso.ing_classe_ingresso
-                        }}
-                    );
-                }
-                res.json({ status })
-            });
-        })
+        ingresso.cancelarUltimo(pos)
+        .then(status => res.json({ status }))
         .catch(e => {
             console.error(e);
             res.status(400).json({
