@@ -385,7 +385,13 @@ class IngressoModel {
 
         return await Promise.all(create)
         .then(data => {
-            return data;
+            // Arruma o retorno em um único array
+            const aux = [];
+            data.map(foo => {
+                aux.push(foo.map(bar => bar))
+            });
+
+            return aux;
         })
         .catch(e => { throw e });
     }
