@@ -58,8 +58,9 @@ class IngressoModel {
     /**
      * Incrementa o estoque de ingressos em 'ticketsl_promo.tbl_itens_classes_ingressos'.
      * 
-     * @param {number} quant Pode ser positivo (> 0) para aumentar o estoque, ou negativo (< 0) para reduzir.
-     * @param {string} item_class ticketsl_promo.tbl_itens_classes_ingressos.ing_item_classe_ingresso
+     * @param {number} quant Pode ser positivo (`quant > 0`) para aumentar o estoque,
+     * ou negativo (`quant < 0`) para reduzir.
+     * @param {number} item_class ticketsl_promo.tbl_itens_classes_ingressos.ing_item_classe_ingresso
      * @returns {Promise<Number>}
      */
     async promoIncrement(quant, item_class) {
@@ -72,7 +73,7 @@ class IngressoModel {
                 attributes: ['itc_cod']
             })
             .then(data => {
-                if(!!data.itc_cod) throw 'Estoque vazio';
+                if(!!data?.itc_cod) throw 'Estoque vazio';
             });
         }
 
@@ -82,13 +83,17 @@ class IngressoModel {
                 itc_cod: item_class
             }}
         )
-        .then(a => a[1]);
+        .then(a => {
+            //console.log(a, a[0][1])
+            return a[0][1]
+        });
     }
 
     /**
      * Incrementa o estoque de ingressos em 'ticketsl_loja.lltckt_product'.
      * 
-     * @param {number} quant Pode ser positivo (> 0) para aumentar o estoque, ou negativo (< 0) para reduzir.
+     * @param {number} quant Pode ser positivo (`quant > 0`) para aumentar o estoque,
+     * ou negativo (´quant < 0´) para reduzir.
      * @param {number} class_id ticketsl_loja.lltckt_product.class_id
      * @returns {Promise<number>} 
      */
@@ -102,7 +107,7 @@ class IngressoModel {
                 attributes: ['product_id']
             })
             .then(data => {
-                if(!!data.product_id) throw 'Estoque da loja vazio';
+                if(!!data?.product_id) throw 'Estoque da loja vazio';
             });
         }
 
@@ -112,7 +117,7 @@ class IngressoModel {
                 classId: class_id
             }}
         )
-        .then(a => a[1]);
+        .then(a => a[0][1]);
     }
 
     /**
@@ -185,6 +190,26 @@ class IngressoModel {
 
             return result[0];
         });
+    }
+
+    /**
+     * Reserva uma quantidade de ingressos.
+     * 
+     * @param {number} quant `quant > 0` para reservar, `quant < 0` para cancelar a reserva.
+     * @param {number} classe Classe do Ingresso.
+     */
+    async reservaIngresso(quant, classe) {
+        return await tbl_itens_classes_ingressos.findOne({
+            where: {
+                itc_classe: classe
+            },
+            attributes: ['itc_cod'],
+            order: [['itc_prioridade','ASC']]
+        })
+        .then(async data => (
+            await this.promoIncrement(-quant, data.itc_cod)
+            .then(a => !!a)
+        ));
     }
 
     /**

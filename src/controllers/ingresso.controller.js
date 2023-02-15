@@ -22,6 +22,29 @@ class IngressoController {
     */
 
     /**
+     * Reserva uma quantidade de ingressos.
+     * 
+     * @param {Request} req { quant, classe }
+     * @param {Response} res 
+     */
+    static async reserve(req, res) {
+        const { quant, classe } = req.body;
+        const ingresso = new Ingresso();
+
+        await ingresso.reservaIngresso(quant, classe)
+        .then(status => {
+            res.json({ status });
+        })
+        .catch(e => {
+            console.error(e);
+            res.status(400).json({
+                error: 'Erro ao Reservar Ingressos',
+                message: JSON.stringify(e)
+            });
+        });
+    }
+
+    /**
      * Registra ingressos, mas ainda não confirmados pelo POS
      * 
      * @param {Request} req {
