@@ -63,7 +63,20 @@ class IngressoModel {
      * @returns {Promise<Number>}
      */
     async promoIncrement(quant, item_class) {
-        await tbl_itens_classes_ingressos.increment(
+        if(quant < 0) {
+            await tbl_itens_classes_ingressos.findOne({
+                where: {
+                    itc_cod: item_class,
+                    itc_quantidade: 0
+                },
+                attributes: ['itc_cod']
+            })
+            .then(data => {
+                if(!!data.itc_cod) throw 'Estoque vazio';
+            });
+        }
+
+        return await tbl_itens_classes_ingressos.increment(
             { itc_quantidade: quant },
             { where: {
                 itc_cod: item_class
@@ -76,15 +89,27 @@ class IngressoModel {
      * Incrementa o estoque de ingressos em 'ticketsl_loja.lltckt_product'.
      * 
      * @param {number} quant Pode ser positivo (> 0) para aumentar o estoque, ou negativo (< 0) para reduzir.
-     * @param {string|string[]} class_id ticketsl_loja.lltckt_product.class_id
+     * @param {number} class_id ticketsl_loja.lltckt_product.class_id
      * @returns {Promise<number>} 
      */
     async lojaIncrement(quant, class_id) {
-        await lltckt_product.increment(
+        if(quant < 0) {
+            await lltckt_product.findOne({
+                where: {
+                    classId: class_id,
+                    quantity: 0
+                },
+                attributes: ['product_id']
+            })
+            .then(data => {
+                if(!!data.product_id) throw 'Estoque da loja vazio';
+            });
+        }
+
+        return await lltckt_product.increment(
             { quantity: quant },
             { where: {
-                classId: typeof class_id === 'string'
-                    ? class_id : { [Op.in]: class_id }
+                classId: class_id
             }}
         )
         .then(a => a[1]);
@@ -142,10 +167,11 @@ class IngressoModel {
      * 
      * 3 - Ingresso cancelado.
      * 
+     * @param {undefined|string} erro_msg Mensagem de erro específica
      * @returns {Promise<number>} Total de rows alteradas
      */
-    async updateStatus(ingressos, status) {
-        await tbl_ingressos.update(
+    async updateStatus(ingressos, status, erro_msg) {
+        return await tbl_ingressos.update(
             { ing_status: status },
             { where: {
                 ing_cod_barras: { [Op.in]: ingressos }
@@ -154,7 +180,7 @@ class IngressoModel {
         .then(async result => {
             // Algum ingresso não foi validado?
             if(result[0] !== ingressos.length) {
-                throw `${ingressos.length - result[0]} Ingresso(s) não validado(s)`;
+                throw erro_msg ?? `${ingressos.length - result[0]} Ingresso(s) não validado(s)`;
             }
 
             return result[0];
@@ -342,24 +368,25 @@ class IngressoModel {
      * @param {string[]} ingressos Códigos de barras dos ingressos
      */
     async validarIngressos(ingressos) {
-        
+    
         // Verifica se há ingressos cancelados
         this.verificarIngressoCancelado(ingressos);
 
         return await this.updateStatus(ingressos, 1)
-        .then(async () => {
+        .then(async result => {
 
             // Obtêm as classes dos ingressos
-            await tbl_ingressos.findAll({
+            return await tbl_ingressos.findAll({
                 where: {
                     ing_cod_barras: { [Op.in]: ingressos }
                 },
                 attributes: ['ing_classe_ingresso']
             })
-            .then(data => {
-                data.map(async ({ ing_classe_ingresso: classe }) => {
+            .then(async data => {
+                // Dá baixa nos estoques
+                const baixaEstoque = data.map(async a => {
                     // Reduz o estoque da loja
-                    await this.lojaIncrement(-1, classe)
+                    await this.lojaIncrement(-1, a.ing_classe_ingresso)
                     .then(result => {
                         // O estoque não foi reduzido?
                         if(result <= 0) {
@@ -368,9 +395,10 @@ class IngressoModel {
                         };
                     });
                 });
-            });
 
-            return true;
+                return await Promise.all(baixaEstoque)
+                .then(() => result === ingressos.length)
+            });
         });
     }
 
@@ -380,7 +408,8 @@ class IngressoModel {
      * @param {string[]} ingressos
      */
     async ingressoRecebido(ingressos) {
-        return await this.updateStatus(ingressos, 2);
+        return await this.updateStatus(ingressos, 2)
+        .then(result => result === ingressos.length);
     }
 }
 
