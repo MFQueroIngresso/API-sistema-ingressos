@@ -4,6 +4,7 @@
     definidas no Sequelize.
 */
 
+const lltckt_cart = require('./lltckt_cart');
 const lltckt_category = require('./lltckt_category');
 const lltckt_eve_categorias = require('./lltckt_eve_categorias');
 const lltckt_order_product_barcode = require('./lltckt_order_product_barcode');
@@ -22,9 +23,10 @@ const lltckt_product = require('./lltckt_product');
 const syncModels = async () => {
     /* { alter: true } */
     await lltckt_category.sync();
-    await lltckt_order.sync();
     await lltckt_product.sync();
+    await lltckt_cart.sync();
     await lltckt_eve_categorias.sync();
+    await lltckt_order.sync();
     await lltckt_order_product.sync();
     await lltckt_order_product_barcode.sync();
 }
@@ -32,6 +34,7 @@ const syncModels = async () => {
 syncModels();
 
 module.exports = {
+    lltckt_cart,
     lltckt_category,
     lltckt_eve_categorias,
     lltckt_order_product_barcode,

@@ -11,7 +11,13 @@ const {
 } = ticketsl_promo;
 
 const {
-    lltckt_product
+    lltckt_cart,
+    lltckt_category,
+    lltckt_order,
+    lltckt_product,
+    lltckt_order_product,
+    lltckt_order_product_barcode,
+    lltckt_eve_categorias
 } = ticketsl_loja;
 
 /**
@@ -193,22 +199,108 @@ class IngressoModel {
     }
 
     /**
-     * Reserva uma quantidade de ingressos.
+     * Reserva de ingressos.
      * 
-     * @param {number} quant `quant > 0` para reservar, `quant < 0` para cancelar a reserva.
-     * @param {number} classe Classe do Ingresso.
+     * @param {[{
+     *  classe: number,
+     *  quant: number
+     * }]} ingressos
+     * @param {string} sessao
      */
-    async reservaIngresso(quant, classe) {
-        return await tbl_itens_classes_ingressos.findOne({
-            where: {
-                itc_classe: classe
-            },
-            attributes: ['itc_cod'],
-            order: [['itc_prioridade','ASC']]
-        })
-        .then(async data => (
-            await this.promoIncrement(-quant, data.itc_cod)
-            .then(a => !!a)
+    async reservaIngresso(ingressos, sessao) {
+        // Tempo e expiração da reserva
+        const expire = new Date();
+        expire.setMinutes(expire.getMinutes() + 5); // 5 minutos
+
+        /**
+         * Inicia a expiração da reserva.
+         * 
+         * @param {number} cart_id 
+         */
+        const start = (cart_id, quant, classe) => schedule.scheduleJob(expire, async () => {
+            await lltckt_cart.destroy({
+                where: { cart_id }
+            })
+            .then(async result => {
+                if(!!result) {
+                    await this.lojaIncrement(quant, classe)
+                    .then(a => !!a && console.log(`Item removido da sessão: ${sessao}`));
+                }
+            });
+        });
+
+        // Registra os dados do carrinho
+        const aux = ingressos.map(async ing => {
+
+            // Obtêm o id do produto na loja
+            const product_id = await lltckt_product.findOne({
+                where: { classId: ing.classe },
+                attributes: ['product_id']
+            })
+            .then(a => a.product_id)
+            .catch(e => { throw e; });
+
+            // Reduz o estoque na loja
+            await this.lojaIncrement(-ing.quant, ing.classe)
+            .then(result => {
+                // O estoque não foi reduzido?
+                if(!result) throw 'Não foi possível dar baixa no estoque';
+            })
+            .catch(e => { throw e; });
+
+            // Dados da reserva
+            const data = {
+                api_id: 0,
+                customer_id: 0,
+                session_id: sessao,
+                product_id,
+                recurring_id: 0,
+                option: '[]', // mudar depois, para os numerados
+                quantity: ing.quant,
+                date_added: Date.now(),
+                date_expired: expire
+            }
+
+            // Verifica se o ingresso já foi registrado na sessão
+            return await lltckt_cart.findOne({
+                where: {
+                    session_id: sessao,
+                    product_id
+                }
+            })
+            .then(async result => {
+                // O ingresso não está reservado?
+                if(!result) {
+                    // Reserva o ingresso
+                    return await lltckt_cart.create(data)
+                    .then(a => {
+                        start(a.cart_id, a.quantity, ing.classe);
+                        return !!a;
+                    });
+                }
+                else {
+                    // Incrementa a quantidade
+                    data.quantity += result.quantity;
+
+                    // Atualiza a reserva
+                    return await lltckt_cart.update(
+                        data,
+                        { where: {
+                            cart_id: result?.cart_id
+                        }}
+                    )
+                    .then(a => {
+                        start(result.cart_id, data.quantity, ing.classe);
+                        return !!a[0];
+                    });
+                }
+            })
+            .catch(e => { throw e; });
+        });
+
+        // Retorna a confirmação de todos os itens na reserva criados/atualizados
+        return await Promise.all(aux).then(results => (
+            results.reduce((prev, next) => prev && next)
         ));
     }
 

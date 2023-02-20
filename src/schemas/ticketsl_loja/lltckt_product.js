@@ -1,9 +1,14 @@
 const { DataTypes } = require('sequelize');
 const db_conn = require('./db_conn');
 
+const { tbl_classes_ingressos } = require('../ticketsl_promo');
+
 
 /**
- * ...
+ * Tabela dos ingressos na loja
+ * 
+ * foreign key:
+ * - ticketsl_promo.tbl_classes_ingressos (classId → cla_cod)
  */
 const lltckt_product = db_conn.define(
     'lltckt_product',
@@ -41,9 +46,11 @@ const lltckt_product = db_conn.define(
         mpn: {
             type: DataTypes.STRING(64)
         },
+
         location: {
             type: DataTypes.STRING(128)
         },
+
         quantity: {
             type: DataTypes.INTEGER(4)
         },
@@ -59,9 +66,11 @@ const lltckt_product = db_conn.define(
         manufacturer_id: {
             type: DataTypes.INTEGER(11)
         },
+
         shipping: {
             type: DataTypes.TINYINT(1)
         },
+
         price: {
             type: DataTypes.DECIMAL(15,4)
         },
@@ -162,7 +171,22 @@ const lltckt_product = db_conn.define(
             type: DataTypes.STRING(99)
         },
     },
-    { timestamps: false }
+    { timestamps: false, schema: process.env.DB_TICKETSL_LOJA }
 );
+
+// foreign keys
+
+// ticketsl_promo.tbl_classes_ingressos (classId → cla_cod)
+tbl_classes_ingressos.hasMany(lltckt_product, {
+    foreignKey: 'classId',
+    sourceKey: 'cla_cod',
+    onUpdate: 'set null',
+    onDelete: 'set null',
+    hooks: true
+});
+lltckt_product.belongsTo(tbl_classes_ingressos, {
+    foreignKey: 'classId',
+    targetKey: 'cla_cod'
+});
 
 module.exports = lltckt_product;

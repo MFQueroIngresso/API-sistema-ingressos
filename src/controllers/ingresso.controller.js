@@ -22,16 +22,16 @@ class IngressoController {
     */
 
     /**
-     * Reserva uma quantidade de ingressos.
+     * Reserva um ou mais ingressos na sessão.
      * 
-     * @param {Request} req { quant, classe }
+     * @param {Request} req { ingressos, sessao }
      * @param {Response} res 
      */
     static async reserve(req, res) {
-        const { quant, classe } = req.body;
-        const ingresso = new Ingresso();
+        const { ingressos, sessao } = req.body;
+        const model = new Ingresso();
 
-        await ingresso.reservaIngresso(quant, classe)
+        await model.reservaIngresso(ingressos, sessao)
         .then(status => {
             res.json({ status });
         })

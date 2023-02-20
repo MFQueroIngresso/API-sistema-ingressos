@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const { ticketsl_promo, ticketsl_loja } = require('../schemas');
-const { SHA256, AES } = require('crypto-js');
+const { SHA256, AES, MD5 } = require('crypto-js');
+const { lltckt_product } = require('../schemas/ticketsl_loja');
 
 const {
     tbl_pos,
@@ -75,8 +76,19 @@ class POSController {
             // O POS não foi encontrado?
             if(!data) throw "Login ou Senha inválidos";
 
+            // Hash para a obtenção dos dados
             const hash = SHA256(JSON.stringify(data)).toString();
-            res.json({ hash });
+
+            // Sessão do POS
+            const genSession = () => {
+                const max = 1000;
+                const min = 1;
+                const code = Math.floor(Math.random() * (max - min)  + min);
+
+                return MD5(`${code.toString()}/${pos_serie}`).toString();
+            }
+
+            res.json({ hash, sessao: genSession() });
         })
         .catch(e => {
             console.error(e);
@@ -238,14 +250,17 @@ class POSController {
                         where: {
                             cla_cod: { [Op.in]: allowed_tickets }
                         },
-                        include: {
-                            model: tbl_itens_classes_ingressos,
-                            order: [
-                                ['itc_prioridade', 'ASC'], // organizar por prioridade
-                                ['itc_quantidade', 'ASC']  //  "    "   por quantidade
-                            ],
-                            limit: 1
-                        }
+                        include: [
+                                /* {
+                                model: tbl_itens_classes_ingressos,
+                                order: [
+                                    ['itc_prioridade', 'ASC'], // organizar por prioridade
+                                    ['itc_quantidade', 'ASC']  //  "    "   por quantidade
+                                ],
+                                limit: 1
+                            }, */
+                            { model: lltckt_product }
+                        ]
                     }
                 ]
             })
@@ -292,9 +307,12 @@ class POSController {
 
 
                             /* Alterações no json */
-                            // Altera "tbl_itens_classes_ingressos" de um array[1] para json
                             value.tbl_classes_ingressos.map(a => {
-                                a.tbl_itens_classes_ingressos = a.tbl_itens_classes_ingressos[0];
+                                // Altera "tbl_itens_classes_ingressos" de um array[1] para json
+                                //a.tbl_itens_classes_ingressos = a.tbl_itens_classes_ingressos[0];
+
+                                // Altera "lltckt_product" de um array para json
+                                a.lltckt_products = a.lltckt_products[0];
                                 return a;
                             });
 
