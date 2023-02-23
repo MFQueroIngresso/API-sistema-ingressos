@@ -213,21 +213,44 @@ class IngressoModel {
         expire.setMinutes(expire.getMinutes() + 5); // 5 minutos
 
         /**
-         * Inicia a expiração da reserva.
-         * 
-         * @param {number} cart_id 
+         * Inicia a expiração da reserva de uma sessão.
          */
-        const start = (cart_id, quant, classe) => schedule.scheduleJob(expire, async () => {
-            await lltckt_cart.destroy({
-                where: { cart_id }
-            })
-            .then(async result => {
-                if(!!result) {
-                    await this.lojaIncrement(quant, classe)
-                    .then(a => !!a && console.log(`Item removido da sessão: ${sessao}`));
-                }
+        const start = () => {
+            // Cancela a schedule anterior da sessão
+            const job = schedule.scheduledJobs[`${sessao}`];
+            schedule.cancelJob(job);
+
+            // Inicia a schedule
+            schedule.scheduleJob(`${sessao}`, expire, async () => {
+                await lltckt_cart.findAll({
+                    where: { session_id: sessao },
+                    include: {
+                        model: lltckt_product,
+                        attributes: ['classId']
+                    }
+                })
+                .then(async itens => {
+                    // Remove cada item da reserva e retorna para o estoque
+                    const aux = itens.map(async item => {
+                        return await lltckt_cart.destroy({
+                            where: { cart_id: item.cart_id }
+                        })
+                        .then(async value => {
+                            if(!!value) {
+                                return await this.lojaIncrement(item.quantity, item.lltckt_product.classId)
+                                .then(a => !!a);
+                            }
+                        });
+                    });
+
+                    // Executa todas as promises
+                    await Promise.all(aux).then(result => {
+                        const expired = result.reduce((prev, next) => prev && next);
+                        !!expired && console.log(`---------- Sessão expirada: ${sessao} ----------`);
+                    });
+                });
             });
-        });
+        }
 
         // Registra os dados do carrinho
         const aux = ingressos.map(async ing => {
@@ -274,7 +297,7 @@ class IngressoModel {
                     // Reserva o ingresso
                     return await lltckt_cart.create(data)
                     .then(a => {
-                        start(a.cart_id, a.quantity, ing.classe);
+                        start();
                         return !!a;
                     });
                 }
@@ -290,7 +313,7 @@ class IngressoModel {
                         }}
                     )
                     .then(a => {
-                        start(result.cart_id, data.quantity, ing.classe);
+                        start();
                         return !!a[0];
                     });
                 }
