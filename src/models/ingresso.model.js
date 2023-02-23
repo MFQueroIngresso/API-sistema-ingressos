@@ -600,7 +600,7 @@ class IngressoModel {
                 // Dá baixa nos estoques
                 const baixaEstoque = data.map(async a => {
                     // Reduz o estoque da loja
-                    await this.promoIncrement(-1, a.ing_classe_ingresso)
+                    await this.promoIncrement(-1, a.ing_item_classe_ingresso)
                     .then(result => {
                         // O estoque não foi reduzido?
                         if(result <= 0) {
