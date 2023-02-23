@@ -119,7 +119,7 @@ const tbl_classes_ingressos = db_conn.define(
             type: DataTypes.TINYINT(1)
         }
     },
-    { timestamps: false }
+    { timestamps: false, schema: process.env.DB_TICKETSL_PROMO }
 );
 
 // foreign keys
