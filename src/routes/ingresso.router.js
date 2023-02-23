@@ -10,5 +10,6 @@ router.get('/last', Ingresso.findLast);
 
 router.delete('/cancel', Ingresso.cancel);
 router.delete('/cancel/last', Ingresso.cancelLast);
+router.delete('/cancel/reserve', Ingresso.cancelReserve);
 
 module.exports = router;

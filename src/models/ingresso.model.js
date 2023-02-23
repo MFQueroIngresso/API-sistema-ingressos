@@ -328,6 +328,64 @@ class IngressoModel {
     }
 
     /**
+     * Cancela a reserva dos ingressos informados ou todos na sessão.
+     * 
+     * @param {[{
+     *  classe: number,
+     *  quant: number
+     * }]|undefined} ingressos 
+     * @param {string} sessao 
+     */
+    async cancelarReserva(ingressos, sessao) {
+        // Cancelar todos na sessão?
+        const cancel_all = !!ingressos?.length;
+
+        if(cancel_all) {
+            return await lltckt_cart.destroy({
+                where: {
+                    session_id: sessao
+                }
+            })
+            .then(a => !!a);
+        }
+        else {
+            // Registra os dados do carrinho
+            const aux = ingressos.map(async ing => {
+                // Obtêm o id do produto na loja
+                const product_id = await lltckt_product.findOne({
+                    where: { classId: ing.classe },
+                    attributes: ['product_id']
+                })
+                .then(a => a.product_id)
+                .catch(e => { throw e; });
+
+                // Restaura o estoque na loja
+                await this.lojaIncrement(ing.quant, ing.classe)
+                .then(result => {
+                    // O estoque não foi restaurado?
+                    if(!result) throw 'Não foi possível restaura o valor do estoque';
+                })
+                .catch(e => { throw e; });
+
+                return await lltckt_cart.decrement(
+                    { quantity: ing.quant },
+                    {
+                        where: {
+                            session_id: sessao,
+                            product_id
+                        }
+                    }
+                )
+                .then(a => !!a[1]);
+            });
+
+            return await Promise.all(aux).then(results => (
+                results.reduce((prev, next) => prev && next)
+            ));
+        }
+    }
+
+    /**
      * Registra determinada quantidade de ingressos, 
      * mas ainda não confirmados pelo POS.
      * 

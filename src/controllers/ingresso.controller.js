@@ -45,6 +45,27 @@ class IngressoController {
     }
 
     /**
+     * Cancela a reserva de um ou todos os ingressos na sessão.
+     * 
+     * @param {Request} req { ingressos, sessao }
+     * @param {Response} res 
+     */
+    static async cancelReserve(req, res) {
+        const { ingressos, sessao } = req.body;
+        const model = new Ingresso();
+
+        await model.cancelarReserva(ingressos, sessao)
+        .then(status => res.json({ status }))
+        .catch(e => {
+            console.error(e);
+            res.status(400).json({
+                error: 'Erro ao Cancelar a Reserva',
+                message: JSON.stringify(e)
+            });
+        });
+    }
+
+    /**
      * Registra ingressos, mas ainda não confirmados pelo POS
      * 
      * @param {Request} req {

@@ -1,9 +1,14 @@
 const { DataTypes } = require('sequelize');
 const db_conn = require('./db_conn');
 
+const lltckt_category = require('./lltckt_category');
+
 
 /**
  * ...
+ * 
+ * foreign keys:
+ * - lltckt_category (category_id → category_id)
  */
 const lltckt_order = db_conn.define(
     'lltckt_order',
@@ -269,7 +274,22 @@ const lltckt_order = db_conn.define(
             type: DataTypes.STRING
         }
     },
-    { timestamps: false }
+    { timestamps: false, schema: process.env.DB_TICKETSL_LOJA }
 );
+
+// foreign keys
+
+// lltckt_category (category_id → category_id)
+lltckt_category.hasMany(lltckt_order, {
+    foreignKey: 'category_id',
+    sourceKey: 'category_id',
+    onUpdate: 'cascade',
+    onDelete: 'cascade',
+    hooks: true
+});
+lltckt_order.belongsTo(lltckt_category, {
+    foreignKey: 'category_id',
+    targetKey: 'category_id'
+});
 
 module.exports = lltckt_order;
