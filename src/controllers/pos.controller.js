@@ -63,14 +63,14 @@ class POSController {
 
         /* depois arrumar o include para realizar o login */
         await tbl_pos.findOne({
-            where: { pos_serie },
-            /* include: {
+            /* where: { pos_serie }, */
+            include: {
                 model: tbl_pdvs,
                 where: {
                     pdv_login,
                     pdv_senha: pass
                 },
-            } */
+            }
         })
         .then(data => {
             // O POS não foi encontrado?
@@ -85,7 +85,7 @@ class POSController {
                 const min = 1;
                 const code = Math.floor(Math.random() * (max - min)  + min);
 
-                return MD5(`${code.toString()}/${pos_serie}`).toString();
+                return MD5(`${code.toString()}/${hash}`).toString();
             }
 
             res.json({ hash, sessao: genSession() });
