@@ -1,6 +1,8 @@
 const { Op } = require('sequelize');
+const { POS } = require('../models');
+
 const { ticketsl_promo, ticketsl_loja } = require('../schemas');
-const { SHA256, AES, MD5 } = require('crypto-js');
+const { SHA256, AES, enc } = require('crypto-js');
 const { lltckt_product } = require('../schemas/ticketsl_loja');
 
 const {
@@ -52,43 +54,25 @@ class POSController {
     /**
      * Login do PDV, através do POS
      * 
-     * @param {Request} req { pos_serie, pdv_login, pdv_senha }
+     * @param {Request} req { login, senha }
      * @param {Response} res 
      */
     static async login(req, res) {
-        const { pos_serie, pdv_login, pdv_senha } = req.body;
+        const { login, senha } = req.body;
 
         // Descriptografa a senha
-        let pass = pdv_senha;
+        // obs: ainda preciso decidir como será
+        let pass = senha;
 
-        /* depois arrumar o include para realizar o login */
-        await tbl_pos.findOne({
-            /* where: { pos_serie }, */
-            include: {
-                model: tbl_pdvs,
-                where: {
-                    pdv_login,
-                    pdv_senha: pass
-                },
-            }
-        })
-        .then(data => {
-            // O POS não foi encontrado?
-            if(!data) throw "Login ou Senha inválidos";
-
+        const model = new POS();
+        await model.login(login, pass)
+        .then(result => {
             // Hash para a obtenção dos dados
-            const hash = SHA256(JSON.stringify(data)).toString();
+            const hash = AES.encrypt(result.pdv, result.sessao).toString();
 
-            // Sessão do POS
-            const genSession = () => {
-                const max = 1000;
-                const min = 1;
-                const code = Math.floor(Math.random() * (max - min)  + min);
-
-                return MD5(`${code.toString()}/${hash}`).toString();
-            }
-
-            res.json({ hash, sessao: genSession() });
+            res.json({
+                hash, sessao: result.sessao
+            });
         })
         .catch(e => {
             console.error(e);
