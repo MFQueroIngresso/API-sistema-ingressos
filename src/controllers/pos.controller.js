@@ -209,7 +209,9 @@ class POSController {
      * @param {Response} res 
      */
     static async getClass(req, res) {
-        const { pdv, evento } = req.body;
+        const { hash, sessao, evento } = req.body;
+
+        const pdv = parseInt(AES.decrypt(hash, sessao).toString(enc.Utf8));
 
         const model = new POS();
         await model.getEventoClasses(pdv, evento)
