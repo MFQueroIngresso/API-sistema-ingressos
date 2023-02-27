@@ -172,6 +172,57 @@ class POS {
             return { pdv: pdv_data, data: eventos }
         });
     }
+
+    /**
+     * Busca os dados mais recentes das classes do evento informado.
+     * 
+     * @param {number} pdv PDV onde o evento é vendido
+     * @param {number} evento Id do evento
+     */
+    async getEventoClasses(pdv, evento) {
+
+        // Agrupa os ingressos permitidos
+        const allowed_tickets = await tbl_classes_ingressos_pdvs.findAll({
+            where: { cip_pdv: pdv }
+        })
+        .then(tickets => tickets?.map(e => e?.cip_classe_ingresso));
+
+        // Obtêm os dados do evento
+        return await tbl_eventos_pdvs.findOne({
+            where: { evp_pdv: pdv },
+            attributes: ['evp_pdv'],
+            include: {
+                model: tbl_eventos,
+                attributes: ['eve_cod'],
+                where: { eve_cod: evento },
+                include: {
+                    model: tbl_classes_ingressos,
+                    where: { cla_cod: { [Op.in]: allowed_tickets }},
+                    include: {
+                        model: tbl_itens_classes_ingressos,
+                        order: [[ 'itc_prioridade', 'ASC' ]]
+                    }
+                }
+            }
+        })
+        .then(evento_pdv => {
+            // Obtêm as classes do evento
+            const classes = JSON.parse(JSON.stringify(
+                evento_pdv.tbl_evento?.tbl_classes_ingressos
+            ));
+
+            return classes.map(classe => {
+                // Obtêm o index do primeiro lote não vazio
+                const index = classe.tbl_itens_classes_ingressos
+                .findIndex(a => a.itc_quantidade > 0);
+                const aux = classe.tbl_itens_classes_ingressos[index >= 0 ? index : 0]
+
+                // Altera a lista de lotes para apenas um lote
+                classe.tbl_itens_classes_ingressos = aux;
+                return classe;
+            });
+        })
+    }
 }
 
 module.exports = POS;

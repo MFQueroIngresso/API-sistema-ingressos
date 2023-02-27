@@ -201,6 +201,27 @@ class POSController {
             });
         }
     }
+
+    /**
+     * Obtêm os dados recentes do estoque de um evento.
+     * 
+     * @param {Request} req 
+     * @param {Response} res 
+     */
+    static async getClass(req, res) {
+        const { pdv, evento } = req.body;
+
+        const model = new POS();
+        await model.getEventoClasses(pdv, evento)
+        .then(a => res.json(a))
+        .catch(e => {
+            console.log(e);
+            res.status(400).json({
+                erro: 'Erro ao Obter o Estoque',
+                message: JSON.stringify(e)
+            });
+        });
+    }
 }
 
 module.exports = POSController;
