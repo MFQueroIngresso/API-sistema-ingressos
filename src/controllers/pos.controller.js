@@ -178,157 +178,28 @@ class POSController {
     }
 
     /**
-     * Procura por atualizações nos dados do POS,
-     * comparando a chave hash informada.
+     * Obtêm os dados do PDV/POS.
      * 
-     * @param {Request} req { pos_serie, hash }
+     * @param {Request} req { hash, sessao }
      * @param {Response} res 
      */
-    static async searchUpdate(req, res) {
-        const { pos_serie, hash } = req.body;
+    static async getData(req, res) {
+        const { hash, sessao } = req.body;
 
-        await tbl_pos.findOne({
-            where: { pos_serie },
-            include: {
-                model: tbl_pdvs
-            }
-        })
-        .then(async result => {
-            // O POS não foi encontrado?
-            if(!result) throw 'POS desconhecido';
-    
-            // Obtêm o id do PDV
-            const pdv = result?.dataValues?.tbl_pdv;
-    
-            // Agrupa os eventos permitidos
-            const allowed_eventos = await tbl_eventos_pdvs.findAll({
-                where: { evp_pdv: pdv?.pdv_id },
-                include: {
-                    model: tbl_eventos,
-                    where: { eve_ativo: 1 } // somente eventos ativos
-                }
-            })
-            .then(eventos => {
-                return eventos?.map(e => e?.evp_evento)
-            });
-    
-            // Agrupa os ingressos permitidos
-            const allowed_tickets = await tbl_classes_ingressos_pdvs.findAll({ where: { cip_pdv: pdv?.pdv_id }})
-            .then(tickets => tickets?.map(e => e?.cip_classe_ingresso));
-    
-            // Obtêm todos os eventos e ingressos permitidos ao POS
-            await tbl_eventos.findAll({
-                where: {
-                    eve_cod: { [Op.in]: allowed_eventos }
-                },
-                include: [
-                    {
-                        model: lltckt_eve_categorias,
-                        include: {
-                            model: lltckt_category
-                        },
-                        limit: 1//
-                    },
-                    {
-                        model: tbl_classes_ingressos,
-                        where: {
-                            cla_cod: { [Op.in]: allowed_tickets }
-                        },
-                        include: [
-                                /* {
-                                model: tbl_itens_classes_ingressos,
-                                order: [
-                                    ['itc_prioridade', 'ASC'], // organizar por prioridade
-                                    ['itc_quantidade', 'ASC']  //  "    "   por quantidade
-                                ],
-                                limit: 1
-                            }, */
-                            { model: lltckt_product }
-                        ]
-                    }
-                ]
-            })
-            .then(eventos => {
-                const data = JSON.parse(JSON.stringify(eventos));
-
-                // Hash dos dados do POS
-                const _this = SHA256(JSON.stringify(data)).toString();
-
-                // Hash do POS
-                const hash_pos = SHA256(JSON.stringify(result)).toString();
-
-                // O hash do request está vazio/é inválido?
-                if(!hash) throw 'Hash vazio ou inválido';
-    
-                // Os dados do banco diferem do hash no request?
-                // Ou o hash do POS é igual ao hash no request?
-                if(_this !== hash || hash_pos === hash) {
-                    // Armazena as mudanças feitas nos dados
-                    const setChanges = [];
-
-                    // Organiza os dados (eventos)
-                    data.forEach(value => {
-                        setChanges.push(new Promise(async (resolve, _) => {
-                            /* Logo do Evento */
-                            // URL base das imagens dos eventos
-                            const url_base = 'https://qingressos.com/image/cache';
-
-                            // Endereço da imagem
-                            const image = value.lltckt_eve_categorias[0].lltckt_category.image;
-
-                            // Link da imagem do evento
-                            value.image_logo = `${url_base}/${image}`;
-
-                            // Obtêm a extensão da imagem
-                            const type = [
-                                value.image_logo.indexOf('.png'),
-                                value.image_logo.indexOf('.jpg'),
-                            ]
-                            
-                            // Adiciona as dimensões da imagem
-                            const position = type.find(a => a >= 0);
-                            value.image_logo = value.image_logo.substring(0, position) + '-638x359' + value.image_logo.substring(position);
-
-
-                            /* Alterações no json */
-                            value.tbl_classes_ingressos.map(a => {
-                                // Altera "tbl_itens_classes_ingressos" de um array[1] para json
-                                //a.tbl_itens_classes_ingressos = a.tbl_itens_classes_ingressos[0];
-
-                                // Altera "lltckt_product" de um array para json
-                                a.lltckt_products = a.lltckt_products[0];
-                                return a;
-                            });
-
-                            // Altera "lltckt_eve_categorias" de um array para json
-                            // obs.: pegando o primeiro valor do array (mudar depois)
-                            value.lltckt_category = value.lltckt_eve_categorias[0].lltckt_category;
-                            delete value.lltckt_eve_categorias;
-    
-                            resolve(value);
-                        }));
-
-                        return value;
-                    });
-
-                    // Aplica as mdanças feitas nos dados
-                    Promise.all(setChanges).then(() => {
-                        // Retorna o novo hash e os dados do POS
-                        const data_code = data/* AES.encrypt(JSON.stringify(data), pos_serie).toString(); */
-                        res.json({ hash: _this, pdv, data: data_code });
-                    });
-                }
-                else
-                    res.json({ message: 'Nenhuma Atualização Nova' });
-            });
-        })
-        .catch(e => {
+        try {
+            const model = new POS();
+            const pdv = parseInt(AES.decrypt(hash, sessao).toString(enc.Utf8));
+            
+            await model.getEventosAutorizados(pdv)
+            .then(a => res.json(a))
+        }
+        catch(e) {
             console.error(e);
             res.status(400).json({
-                error: 'Erro ao Procurar os Dados no POS',
+                erro: 'Erro ao Obtêr os Dados do PDV',
                 message: JSON.stringify(e)
             });
-        });
+        }
     }
 }
 
