@@ -391,9 +391,12 @@ class IngressoModel {
      * 
      * Obs.: depois tem de alterar para:
      * - Limitar o máximo de ingressos vendidos;
-     * - Verificar se o evento foi cancelado/finalizado;
      * 
-     * @param {string} sessao Sessão do POS
+     * @param {[{
+     *      classe: number,
+     *      quant: number
+     * }]} ingressos Dados dos ingressos
+     * @param {number} evento Id do evento
      * @param {string} pos pos_serie do POS
      * @param {number} pag Meio de pagamento:
      * 
@@ -405,7 +408,7 @@ class IngressoModel {
      * 
      * 3 - Débito.
      */
-    async createIngressos(sessao, pos, pag) {
+    async createIngressos(ingressos, evento, pos, pag) {
 
         // Obtêm os dados do POS
         const pos_data = await tbl_pos.findOne({
@@ -420,150 +423,135 @@ class IngressoModel {
             ing_empresa: pos_data.pos_empresa, // Empresa
         }));
 
-        const create = await lltckt_cart.findAll({
-            where: { session_id: sessao },
-            include: {
-                model: lltckt_product,
-                include: {
-                    model: tbl_classes_ingressos,
-                    attributes: ['cla_cod','cla_evento']
-                }
+        const create = ingressos.map(async item => {
+            const data = {
+                ing_evento: evento,                // Evento
+                ing_data_compra: new Date(),       // Data da compra
+                ing_pos: pos,                      // POS
+                ing_classe_ingresso: item.classe,  // Classe do ingresso
+                ing_status: 0,                     // Status do ingresso: não confirmado
+                ing_enviado: 0,                    // Ingresso não enviado
+                ing_mpgto: pag,                    // Meio de pagamento
+                ing_pdv: pos_data.ing_pdv,         // PDV
+                ing_empresa: pos_data.ing_empresa, // Empresa
+
+                ing_item_classe_ingresso: 0, //
             }
-        })
-        .then(cart => {
-            return cart.map(async item => {
-                const { tbl_classes_ingresso } = item.lltckt_product;
-                const data = {
-                    ing_evento: tbl_classes_ingresso.cla_evento,      // Evento
-                    ing_data_compra: new Date(),                      // Data da compra
-                    ing_pos: pos,                                     // POS
-                    ing_classe_ingresso: item.lltckt_product.classId, // Classe do ingresso
-                    ing_status: 0,                                    // Status do ingresso: não confirmado
-                    ing_enviado: 0,                                   // Ingresso não enviado
-                    ing_mpgto: pag,                                   // Meio de pagamento
-                    ing_pdv: pos_data.ing_pdv,                        // PDV
-                    ing_empresa: pos_data.ing_empresa,                // Empresa
 
-                    ing_item_classe_ingresso: 0, //
-                }
+            // Verifica se o Evento já foi finalizado
+            this.verificarEventoFinalizado(data.ing_evento);
 
-                // Verifica se o Evento já foi finalizado
-                this.verificarEventoFinalizado(data.ing_evento);
-
-                // Obtêm a classe do Ingresso
-                await tbl_classes_ingressos.findOne({
-                    where: { cla_cod: data.ing_classe_ingresso },
-                    attributes: [
-                        'cla_cod',
-                        'cla_valor_taxa',
-                        'cla_meia_inteira'
+            // Obtêm a classe do Ingresso
+            await tbl_classes_ingressos.findOne({
+                where: { cla_cod: data.ing_classe_ingresso },
+                attributes: [
+                    'cla_cod',
+                    'cla_valor_taxa',
+                    'cla_meia_inteira'
+                ],
+                include: {
+                    model: tbl_itens_classes_ingressos,
+                    order: [
+                        ['itc_prioridade', 'ASC'], // organizar por prioridade
+                        ['itc_quantidade', 'ASC']  //  "    "   por quantidade
                     ],
-                    include: {
-                        model: tbl_itens_classes_ingressos,
-                        order: [
-                            ['itc_prioridade', 'ASC'], // organizar por prioridade
-                            ['itc_quantidade', 'ASC']  //  "    "   por quantidade
-                        ],
-                        attributes: [
-                            'itc_classe',
-                            'itc_cod',
-                            'itc_valor'
-                        ],
-                        limit: 1
+                    attributes: [
+                        'itc_classe',
+                        'itc_cod',
+                        'itc_valor'
+                    ],
+                    limit: 1
+                }
+            })
+            .then(({ dataValues: ing_class }) => {
+                const aux = ing_class.tbl_itens_classes_ingressos[0];
+
+                data.ing_item_classe_ingresso = aux.itc_cod; // Item da classe
+                data.ing_valor = aux.itc_valor;              // Valor do ingresso
+                data.ing_taxa = ing_class.cla_valor_taxa;    // Taxa
+                data.ing_meia = ing_class.cla_meia_inteira;  // Meia/Inteira
+            });
+
+            // Gera os códigos de barras para cada ingresso
+            const ings = await this.barcodeGen(item.quant).then(codes => (
+                codes.map(a => ({ ing_cod_barras: a, ...data }))
+            ));
+
+            // Registra a venda
+            return await tbl_ingressos.bulkCreate(ings)
+            .then(async data => {
+                // Algum ingresso não foi registrado?
+                if(data.length < item.quant) throw 'Não foi possivel registrar todos os Ingressos';
+
+                // Retorna os ingressos registrados
+                const codes = data.map(a => a.ing_cod_barras);
+                const ingressos = await tbl_ingressos.findAll({
+                    where: {
+                        ing_cod_barras: { [Op.in]: codes }
                     }
-                })
-                .then(({ dataValues: ing_class }) => {
-                    const aux = ing_class.tbl_itens_classes_ingressos[0];
-
-                    data.ing_item_classe_ingresso = aux.itc_cod; // Item da classe
-                    data.ing_valor = aux.itc_valor;              // Valor do ingresso
-                    data.ing_taxa = ing_class.cla_valor_taxa;    // Taxa
-                    data.ing_meia = ing_class.cla_meia_inteira;  // Meia/Inteira
                 });
 
-                // Gera os códigos de barras para cada ingresso
-                const ings = await this.barcodeGen(item.quantity).then(codes => (
-                    codes.map(a => ({ ing_cod_barras: a, ...data }))
-                ));
+                ingressos.map(async ing => {
 
-                // Registra a venda
-                return await tbl_ingressos.bulkCreate(ings)
-                .then(async data => {
-                    // Algum ingresso não foi registrado?
-                    if(data.length < item.quantity) throw 'Não foi possivel registrar todos os Ingressos';
+                    // Dá baixa no estoque
+                    /* await  */this.promoIncrement(-1, ing.ing_item_classe_ingresso);
+                    /* await  */this.lojaIncrement(-1, ing.ing_classe_ingresso);
 
-                    // Retorna os ingressos registrados
-                    const codes = data.map(a => a.ing_cod_barras);
-                    const ingressos = await tbl_ingressos.findAll({
-                        where: {
-                            ing_cod_barras: { [Op.in]: codes }
-                        }
-                    });
-
+                    // Quando o ingresso será cancelado
+                    const date = new Date();
+                    
                     // Inicia as schedule de cancelamento
-                    ingressos.map(ing => {
-                        // Quando o ingresso será cancelado
-                        const date = new Date();
-
-                        const start = () => {
-                            schedule.scheduleJob(date, async () => {
-                                // Atualiza o status do ingresso, se não foi confirmado a venda
-                                await tbl_ingressos.update(
-                                    { ing_status: 3 },
-                                    { where: {
-                                        ing_cod_barras: ing.ing_cod_barras,
-                                        ing_status: 0
-                                    }}
-                                )
-                                .then(async result => {
-                                    if(!!result[0] > 0) {
-                                        // Adiciona o ingresso novamente ao estoque
-                                        await this.lojaIncrement(1, ing.ing_classe_ingresso);
-                                    }
-                                });
+                    const start = () => {
+                        schedule.scheduleJob(date, async () => {
+                            // Atualiza o status do ingresso, se não foi confirmado a venda
+                            await tbl_ingressos.update(
+                                { ing_status: 3 },
+                                { where: {
+                                    ing_cod_barras: ing.ing_cod_barras,
+                                    ing_status: 0
+                                }}
+                            )
+                            .then(async result => {
+                                if(!!result[0] > 0) {
+                                    // Adiciona o ingresso novamente ao estoque
+                                    await this.promoIncrement(1, ing.ing_item_classe_ingresso);
+                                }
                             });
-                        }
+                        });
+                    }
 
-                        // Define o tempo de espera máximo pela confirmação do pagamento
-                        switch (ing.ing_mpgto) {
-                            // Pix
-                            case null:
-                                /* date.setMinutes(date.getMinutes() + 30);
-                                start();
-                                break; */
-                            
-                            // Dinheiro
-                            case 1:
-                                date.setMinutes(date.getMinutes() + 30);
-                                start();
-                                break;
-
-                            // Crédito
-                            case 2:
-                                break;
-
-                            // Débito
-                            case 3:
-                                break;
+                    // Define o tempo de espera máximo pela confirmação do pagamento
+                    switch (ing.ing_mpgto) {
+                        // Pix
+                        case null:
+                            /* date.setMinutes(date.getMinutes() + 30);
+                            start();
+                            break; */
                         
-                            default: break;
-                        }
-                    });
+                        // Dinheiro
+                        case 1:
+                            date.setMinutes(date.getMinutes() + 30);
+                            start();
+                            break;
 
-                    return ingressos;
+                        // Crédito
+                        case 2:
+                            break;
+
+                        // Débito
+                        case 3:
+                            break;
+                    
+                        default: break;
+                    }
                 });
+
+                return ingressos;
             });
         });
 
         // Cria todos os ingressos
         return await Promise.all(create).then(async data => {
-
-            // Limpa a reserva
-            await lltckt_cart.destroy({
-                where: { session_id: sessao }
-            });
-
-
             // Arruma o retorno em um único array
             const aux = [];
             data.map(foo => {
@@ -587,33 +575,9 @@ class IngressoModel {
         this.verificarIngressoCancelado(ingressos);
 
         return await this.updateStatus(ingressos, 1)
-        .then(async result => {
-
-            // Obtêm as classes dos ingressos
-            return await tbl_ingressos.findAll({
-                where: {
-                    ing_cod_barras: { [Op.in]: ingressos }
-                },
-                attributes: ['ing_classe_ingresso']
-            })
-            .then(async data => {
-                // Dá baixa nos estoques
-                const baixaEstoque = data.map(async a => {
-                    // Reduz o estoque da loja
-                    await this.promoIncrement(-1, a.ing_item_classe_ingresso)
-                    .then(result => {
-                        // O estoque não foi reduzido?
-                        if(result <= 0) {
-                            throw 'Falha ao dar baixa no estoque da loja, ' +
-                            `classe: ${classe}`;
-                        };
-                    });
-                });
-
-                return await Promise.all(baixaEstoque)
-                .then(() => result === ingressos.length)
-            });
-        });
+        .then(async result => (
+            result === ingressos.length)
+        );
     }
 
     /**

@@ -69,17 +69,18 @@ class IngressoController {
      * Registra ingressos, mas ainda não confirmados pelo POS
      * 
      * @param {Request} req {
-     *      sessao,
-     *      pag,
-     *      pos
+     *      ingressos,
+     *      evento,
+     *      pos,
+     *      pag
      * }
      * @param {Response} res 
      */
     static async register(req, res) {
-        const { sessao, pag, pos } = req.body;
+        const { ingressos, evento, pos, pag } = req.body;
         const model = new Ingresso();
 
-        await model.createIngressos(sessao, pag, pos)
+        await model.createIngressos(ingressos, evento, pos, pag)
         .then(data => res.json(data))
         .catch(e => {
             console.error(e);
