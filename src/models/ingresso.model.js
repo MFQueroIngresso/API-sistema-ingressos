@@ -466,6 +466,12 @@ class IngressoModel {
             .then(({ dataValues: ing_class }) => {
                 const aux = ing_class.tbl_itens_classes_ingressos[0];
 
+                // Não há ingressos disponíveis?
+                if(aux.itc_quantidade <= 0) throw 'Não há ingressos disponíveis';
+
+                // Há menos ingressos em estoque do que é requerido?
+                if(aux.itc_quantidade < item.quant) throw 'Ingressos insuficientes em estoque';
+
                 data.ing_item_classe_ingresso = aux.itc_cod; // Item da classe
                 data.ing_valor = aux.itc_valor;              // Valor do ingresso
                 data.ing_taxa = ing_class.cla_valor_taxa;    // Taxa
