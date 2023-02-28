@@ -22,6 +22,40 @@ const {
  * Regras de negócio dos POS
  */
 class POS {
+
+    /**
+     * Verifica se a URL é válida.
+     * 
+     * @param {string} url 
+     * @returns Retorna a `url` ou `null` (em caso de não ser válido).
+     */
+    async validateUrl(url) {
+        const validate = new Promise(resolve => {
+            try {
+                new URL(url);
+
+                const get = http => {
+                    http.get(url, response => {
+                        const error_codes = [403, 404];
+
+                        if(error_codes.findIndex(a => a === response.statusCode) > 0)
+                            resolve(null);
+                        resolve(url)
+                    });
+                }
+
+                const http = url.indexOf('https') >= 0
+                    ? require('https') : require('http');
+                get(http);
+            }
+            catch(e) {
+                resolve(null);
+            }
+        });
+
+        return await validate.then(a => a);
+    }
+
     /**
      * Realiza o acesso do PDV/POS.
      * 
@@ -113,63 +147,80 @@ class POS {
                 }
             ]
         })
-        .then(data => {
+        .then(async data => {
             const eventos = JSON.parse(JSON.stringify(data));
 
-            //console.log(eventos[0].eve_nome)
-            eventos.map(async evento => {
-                // Logo do Evento
+            const aux = eventos.map(async evento => (
+                new Promise(async resolve => {
 
+                    // Logo do Evento
+                    // URL base das logos de impressão
+                    const url_base_logo = 'http://gestao.qingressos.com/images/evento';
 
-                // Imagem da Vitrine
-                // URL base das imagens dos eventos
-                const url_base_image = 'https://qingressos.com/image/cache';
+                    // Endereço da logo
+                    const logo = `${url_base_logo}/${evento.eve_cod}.bmp`;
 
-                // Endereço da imagem
-                const image_name = evento.lltckt_eve_categorias[0].lltckt_category.image;
+                    // Valida a URL da logo
+                    evento.eve_logo = await this.validateUrl(logo);
+    
+    
+                    // Imagem da Vitrine
+                    // URL base das imagens dos eventos
+                    const url_base_image = 'https://qingressos.com/image/cache';
+    
+                    // Endereço da imagem
+                    const image_name = evento.lltckt_eve_categorias[0].lltckt_category.image;
+    
+                    // Link da imagem do evento
+                    evento.image = `${url_base_image}/${image_name}`;
+    
+                    // Obtêm a extensão da imagem
+                    const type = [
+                        evento.image.indexOf('.png'),
+                        evento.image.indexOf('.jpg'),
+                    ]
+    
+                    // Adiciona as dimensões da imagem
+                    const position = type.find(a => a >= 0);
+                    const image = evento.image.substring(0, position) + '-638x359' + evento.image.substring(position);
+    
+                    // Valida a URL da imagem
+                    evento.image = await this.validateUrl(image);
+    
+    
+                    // Mapa dos Ingressos
+                    if(evento.eve_mapa) {
+                        const url_base_mapa = 'http://gestao.qingressos.com/images/mapa';
+                        const mapa = `${url_base_mapa}/${evento.eve_mapa}`;
+    
+                        // Valida a URL do mapa
+                        evento.eve_mapa = await this.validateUrl(mapa);
+                    }
+                    else evento.eve_mapa = null;
+    
+    
+                    // Alterações no json
+                    evento.tbl_classes_ingressos.map(a => {
+                        // Altera "tbl_itens_classes_ingressos" de um array[1] para json
+                        a.tbl_itens_classes_ingressos = a.tbl_itens_classes_ingressos[0];
+    
+                        // Altera "lltckt_product" de um array para json
+                        //a.lltckt_products = a.lltckt_products[0];
+                        return a;
+                    });
+    
+                    // Altera "lltckt_eve_categorias" de um array para json
+                    // obs.: pegando o primeiro valor do array (mudar depois)
+                    evento.lltckt_category = evento.lltckt_eve_categorias[0].lltckt_category;
+                    delete evento.lltckt_eve_categorias;
+    
+                    resolve(evento);
+                }))
+            );
 
-                // Link da imagem do evento
-                evento.image = `${url_base_image}/${image_name}`;
-
-                // Obtêm a extensão da imagem
-                const type = [
-                    evento.image.indexOf('.png'),
-                    evento.image.indexOf('.jpg'),
-                ]
-
-                // Adiciona as dimensões da imagem
-                const position = type.find(a => a >= 0);
-                const image = evento.image.substring(0, position) + '-638x359' + evento.image.substring(position);
-
-                // Valida a URL da imagem
-                evento.image = image; // depois usar uma validação de url
-
-
-                // Mapa dos Ingressos
-                const url_base_mapa = 'http://gestao.qingressos.com/images/mapa';
-                const mapa = `${url_base_mapa}/${evento.eve_mapa}`;
-
-                // Valida a URL do mapa
-                evento.eve_mapa = mapa // depois usar uma validação de url
-
-
-                // Alterações no json
-                evento.tbl_classes_ingressos.map(a => {
-                    // Altera "tbl_itens_classes_ingressos" de um array[1] para json
-                    a.tbl_itens_classes_ingressos = a.tbl_itens_classes_ingressos[0];
-
-                    // Altera "lltckt_product" de um array para json
-                    //a.lltckt_products = a.lltckt_products[0];
-                    return a;
-                });
-
-                // Altera "lltckt_eve_categorias" de um array para json
-                // obs.: pegando o primeiro valor do array (mudar depois)
-                evento.lltckt_category = evento.lltckt_eve_categorias[0].lltckt_category;
-                delete evento.lltckt_eve_categorias;
-            });
-
-            return { pdv: pdv_data, data: eventos }
+            return await Promise.all(aux).then(data => (
+                { pdv: pdv_data, data }
+            ));
         });
     }
 

@@ -1,6 +1,6 @@
 {
   "name": "api-qingressos",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "API da Quero Ingresso - Promo",
   "main": "index.js",
   "scripts": {
