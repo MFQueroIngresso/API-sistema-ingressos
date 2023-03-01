@@ -266,6 +266,12 @@ class POS {
         })
         .then(tickets => tickets?.map(e => e?.cip_classe_ingresso));
 
+        const categories = await tbl_categorias_classes_ingressos.findAll({
+            where: { cat_evento: evento },
+            attributes: [ 'cat_cod', 'cat_evento' ]
+        })
+        .then(categories => categories?.map(a => a.cat_cod));
+
         // Obtêm os dados do evento
         return await tbl_eventos_pdvs.findOne({
             where: { evp_pdv: pdv },
@@ -274,14 +280,32 @@ class POS {
                 model: tbl_eventos,
                 attributes: ['eve_cod'],
                 where: { eve_cod: evento },
-                include: {
-                    model: tbl_classes_ingressos,
-                    where: { cla_cod: { [Op.in]: allowed_tickets }},
-                    include: {
-                        model: tbl_itens_classes_ingressos,
-                        order: [[ 'itc_prioridade', 'ASC' ]]
+                include: [
+                    {
+                        model: tbl_classes_ingressos,
+                        where: {
+                            cla_cod: { [Op.in]: allowed_tickets},
+                            cla_categoria_id: { [Op.notIn]: categories }
+                        },
+                        include: {
+                            model: tbl_itens_classes_ingressos,
+                            order: [[ 'itc_prioridade', 'ASC' ]]
+                        }
+                    },
+                    {
+                        model: tbl_categorias_classes_ingressos,
+                        include: {
+                            model: tbl_classes_ingressos,
+                            where: {
+                                cla_cod: { [Op.in]: allowed_tickets }
+                            },
+                            include: {
+                                model: tbl_itens_classes_ingressos,
+                                order: [[ 'itc_prioridade', 'ASC' ]]
+                            }
+                        }
                     }
-                }
+                ]
             }
         })
         .then(evento_pdv => {
@@ -290,17 +314,38 @@ class POS {
                 evento_pdv.tbl_evento?.tbl_classes_ingressos
             ));
 
-            return classes.map(classe => {
-                // Obtêm o index do primeiro lote não vazio
-                const index = classe.tbl_itens_classes_ingressos
-                .findIndex(a => a.itc_quantidade > 0);
-                const aux = classe.tbl_itens_classes_ingressos[index >= 0 ? index : 0]
+            // Obtêm as categorias do evento
+            const categorias = JSON.parse(JSON.stringify(
+                evento_pdv.tbl_evento?.tbl_categorias_classes_ingressos
+            ));
 
-                // Altera a lista de lotes para apenas um lote
-                classe.tbl_itens_classes_ingressos = aux;
-                return classe;
-            });
-        })
+            // Altera a lista de lotes para apenas um lote
+            const set_lote = itens => {
+                // Obtêm o index do primeiro lote não vazio
+                const index = itens.findIndex(a => (
+                    a.itc_quantidade > 0
+                ));
+
+                return itens[index >= 0 ? index : 0];
+            }
+
+            return {
+                tbl_classes_ingressos: classes.map(classe => {
+                    // Define o lote
+                    classe.tbl_itens_classes_ingressos = set_lote(classe.tbl_itens_classes_ingressos);
+                    return classe;
+                }),
+                tbl_categorias_classes_ingressos: categorias.map(categoria => {
+                    categoria.tbl_classes_ingressos.map(classe => {
+                        // Define o lote
+                        classe.tbl_itens_classes_ingressos = set_lote(classe.tbl_itens_classes_ingressos);
+                        return classe;
+                    });
+
+                    return categoria;
+                })
+            }
+        });
     }
 }
 
