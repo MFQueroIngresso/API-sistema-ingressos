@@ -10,6 +10,9 @@ const {
     tbl_classes_ingressos_pdvs,
     tbl_classes_ingressos,
     tbl_itens_classes_ingressos,
+    tbl_classes_ingressos_pdvs_solidario,
+    tbl_classe_ingressos_solidario,
+    tbl_categorias_classes_ingressos
 } = ticketsl_promo;
 
 const {
@@ -103,9 +106,11 @@ class POS {
         // Agrupa os eventos permitidos
         const allowed_eventos = await tbl_eventos_pdvs.findAll({
             where: { evp_pdv: pdv },
+            attributes: [ 'evp_pdv', 'evp_evento' ],
             include: {
                 model: tbl_eventos,
-                where: { eve_ativo: 1 } // somente eventos ativos
+                where: { eve_ativo: 1 }, // somente eventos ativos
+                attributes: [ 'eve_cod', 'eve_ativo' ]
             }
         })
         .then(eventos => eventos?.map(e => e?.evp_evento));
@@ -113,6 +118,28 @@ class POS {
         // Agrupa os ingressos permitidos
         const allowed_tickets = await tbl_classes_ingressos_pdvs.findAll({ where: { cip_pdv: pdv }})
         .then(tickets => tickets?.map(e => e?.cip_classe_ingresso));
+
+        // Obtêm as categorias das classes
+        const categories = await tbl_categorias_classes_ingressos.findAll({
+            where: {
+                cat_evento: { [Op.in]: allowed_eventos }
+            },
+            attributes: [ 'cat_cod', 'cat_evento' ]
+        })
+        .then(categories => categories?.map(a => a.cat_cod));
+
+        // Itens inclusos à classe
+        const class_model_include = [
+            {
+                model: tbl_itens_classes_ingressos,
+                order: [
+                    ['itc_prioridade', 'ASC'], // organizar por prioridade
+                    ['itc_quantidade', 'ASC']  //  "    "   por quantidade
+                ],
+                limit: 1
+            },
+            /* { model: lltckt_product } */
+        ]
 
 
         // Obtêm todos os eventos e ingressos permitidos ao POS
@@ -131,19 +158,20 @@ class POS {
                 {
                     model: tbl_classes_ingressos,
                     where: {
-                        cla_cod: { [Op.in]: allowed_tickets }
+                        cla_cod: { [Op.in]: allowed_tickets },
+                        cla_categoria_id: { [Op.notIn]: categories }
                     },
-                    include: [
-                        {
-                            model: tbl_itens_classes_ingressos,
-                            order: [
-                                ['itc_prioridade', 'ASC'], // organizar por prioridade
-                                ['itc_quantidade', 'ASC']  //  "    "   por quantidade
-                            ],
-                            limit: 1
+                    include: [...class_model_include]
+                },
+                {
+                    model: tbl_categorias_classes_ingressos,
+                    include: {
+                        model: tbl_classes_ingressos,
+                        where: {
+                            cla_cod: { [Op.in]: allowed_tickets }
                         },
-                        /* { model: lltckt_product } */
-                    ]
+                        include: [...class_model_include]
+                    }
                 }
             ]
         })

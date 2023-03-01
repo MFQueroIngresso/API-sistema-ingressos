@@ -14,6 +14,7 @@ const tbl_categorias_classes_ingressos = require('./tbl_categorias_classes_ingre
  * - tbl_eventos (cla_evento → eve_cod)
  * - tbl_empresas (cla_empresa → emp_id)
  * - tbl_setores (cla_setor → id)
+ * - tbl_categorias_classes_ingressos (cla_categoria_id → cat_cod)
  */
 const tbl_classes_ingressos = db_conn.define(
     'tbl_classes_ingressos',
