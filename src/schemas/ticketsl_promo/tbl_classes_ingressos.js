@@ -4,6 +4,7 @@ const db_conn = require('./db_conn');
 const tbl_eventos = require('./tbl_eventos');
 const tbl_empresas = require('./tbl_empresas');
 const tbl_setores = require('./tbl_setores');
+const tbl_categorias_classes_ingressos = require('./tbl_categorias_classes_ingressos');
 
 
 /**
@@ -161,6 +162,19 @@ tbl_setores.hasMany(tbl_classes_ingressos, {
 tbl_classes_ingressos.belongsTo(tbl_setores, {
     foreignKey: 'cla_setor',
     targetKey: 'id'
+});
+
+// tbl_categorias_classes_ingressos (cla_categoria_id → cat_cod)
+tbl_categorias_classes_ingressos.hasMany(tbl_classes_ingressos, {
+    foreignKey: 'cla_categoria_id',
+    sourceKey: 'cat_cod',
+    onUpdate: 'cascade',
+    onDelete: 'set null',
+    hooks: true
+});
+tbl_classes_ingressos.belongsTo(tbl_categorias_classes_ingressos, {
+    foreignKey: 'cla_categoria_id',
+    targetKey: 'cat_cod'
 });
 
 module.exports = tbl_classes_ingressos;

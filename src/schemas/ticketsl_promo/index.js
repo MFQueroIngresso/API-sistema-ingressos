@@ -10,6 +10,7 @@ const grupo_de_usuarios = require('./grupo_de_usuarios');
 const ingresso_cancelado = require('./ingresso_cancelado');
 const regra_de_acesso = require('./regra_de_acesso');
 const sangria = require('./sangria');
+const tbl_categorias_classes_ingressos = require('./tbl_categorias_classes_ingressos');
 const tbl_classe_grupo = require('./tbl_classe_grupo');
 const tbl_classe_numeracao = require('./tbl_classe_numeracao');
 const tbl_classes_ingressos_cupons = require('./tbl_classes_ingressos_cupons');
@@ -62,6 +63,7 @@ const syncModels = async () => {
     await tbl_usuarios.sync();
     await usuario.sync();
     await tbl_eventos.sync();
+    await tbl_categorias_classes_ingressos.sync();
     await caixa.sync();
     await abastecimento.sync();
     await sangria.sync();
@@ -91,6 +93,7 @@ module.exports = {
     ingresso_cancelado,
     regra_de_acesso,
     sangria,
+    tbl_categorias_classes_ingressos,
     tbl_classe_grupo,
     tbl_classe_numeracao,
     tbl_classes_ingressos_cupons,
