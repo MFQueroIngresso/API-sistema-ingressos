@@ -237,9 +237,6 @@ class POS {
                         return a;
                     });
     
-                    // Altera "lltckt_eve_categorias" de um array para json
-                    // obs.: pegando o primeiro valor do array (mudar depois)
-                    evento.lltckt_category = evento.lltckt_eve_categorias[0].lltckt_category;
                     delete evento.lltckt_eve_categorias;
     
                     resolve(evento);
