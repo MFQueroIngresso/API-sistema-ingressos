@@ -12,8 +12,10 @@ const regra_de_acesso = require('./regra_de_acesso');
 const sangria = require('./sangria');
 const tbl_categorias_classes_ingressos = require('./tbl_categorias_classes_ingressos');
 const tbl_classe_grupo = require('./tbl_classe_grupo');
+const tbl_classe_ingressos_solidario = require('./tbl_classe_ingressos_solidario');
 const tbl_classe_numeracao = require('./tbl_classe_numeracao');
 const tbl_classes_ingressos_cupons = require('./tbl_classes_ingressos_cupons');
+const tbl_classes_ingressos_pdvs_solidario = require('./tbl_classes_ingressos_pdvs_solidario');
 const tbl_classes_ingressos_pdvs = require('./tbl_classes_ingressos_pdvs');
 const tbl_classes_ingressos = require('./tbl_classes_ingressos');
 const tbl_clientes = require('./tbl_clientes');
@@ -74,6 +76,8 @@ const syncModels = async () => {
     await tbl_sangria.sync();
     await tbl_sangrias.sync();
     await tbl_classes_ingressos.sync();
+    await tbl_classe_ingressos_solidario.sync();
+    await tbl_classes_ingressos_pdvs_solidario.sync();
     await tbl_classe_grupo.sync();
     await tbl_classes_ingressos_pdvs.sync();
     await tbl_cupons.sync();
@@ -95,8 +99,10 @@ module.exports = {
     sangria,
     tbl_categorias_classes_ingressos,
     tbl_classe_grupo,
+    tbl_classe_ingressos_solidario,
     tbl_classe_numeracao,
     tbl_classes_ingressos_cupons,
+    tbl_classes_ingressos_pdvs_solidario,
     tbl_classes_ingressos_pdvs,
     tbl_classes_ingressos,
     tbl_clientes,
