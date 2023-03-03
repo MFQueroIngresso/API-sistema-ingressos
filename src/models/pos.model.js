@@ -119,6 +119,21 @@ class POS {
         const allowed_tickets = await tbl_classes_ingressos_pdvs.findAll({ where: { cip_pdv: pdv }})
         .then(tickets => tickets?.map(e => e?.cip_classe_ingresso));
 
+        // Obtêm os ingressos solidários do PDV
+        const allowed_solidario = await tbl_classes_ingressos_pdvs_solidario.findAll({
+            where: {
+                cipc_pdv: pdv,
+                cipc_classe_ingresso: { [Op.in]: allowed_tickets }
+            },
+            include: {
+                model: tbl_classe_ingressos_solidario,
+                attributes: [ 'cis_cod', 'cis_cod_classe_ingresso' ]
+            }
+        })
+        .then(solidarios => (
+            solidarios?.map(a => a.tbl_classe_ingressos_solidario.cis_cod)
+        ));
+
         // Obtêm as categorias das classes
         const categories = await tbl_categorias_classes_ingressos.findAll({
             where: {
@@ -127,19 +142,6 @@ class POS {
             attributes: [ 'cat_cod', 'cat_evento' ]
         })
         .then(categories => categories?.map(a => a.cat_cod));
-
-        // Itens inclusos à classe
-        const class_model_include = [
-            {
-                model: tbl_itens_classes_ingressos,
-                order: [
-                    ['itc_prioridade', 'ASC'], // organizar por prioridade
-                    ['itc_quantidade', 'ASC']  //  "    "   por quantidade
-                ],
-                limit: 1
-            },
-            /* { model: lltckt_product } */
-        ]
 
 
         // Obtêm todos os eventos e ingressos permitidos ao POS
@@ -161,7 +163,22 @@ class POS {
                         cla_cod: { [Op.in]: allowed_tickets },
                         cla_categoria_id: { [Op.notIn]: categories }
                     },
-                    include: [...class_model_include]
+                    include: [
+                        {
+                            model: tbl_itens_classes_ingressos,
+                            order: [
+                                ['itc_prioridade', 'ASC'], // organizar por prioridade
+                                ['itc_quantidade', 'ASC']  //  "    "   por quantidade
+                            ],
+                            limit: 1
+                        },
+                        /* { model: lltckt_product }, */
+                        {
+                            model: tbl_classe_ingressos_solidario,
+                            where: { cis_cod: { [Op.in]: allowed_solidario } },
+                            required: false
+                        }
+                    ]
                 },
                 {
                     model: tbl_categorias_classes_ingressos,
@@ -170,7 +187,22 @@ class POS {
                         where: {
                             cla_cod: { [Op.in]: allowed_tickets }
                         },
-                        include: [...class_model_include]
+                        include: [
+                            {
+                                model: tbl_itens_classes_ingressos,
+                                order: [
+                                    ['itc_prioridade', 'ASC'], // organizar por prioridade
+                                    ['itc_quantidade', 'ASC']  //  "    "   por quantidade
+                                ],
+                                limit: 1
+                            },
+                            /* { model: lltckt_product }, */
+                            {
+                                model: tbl_classe_ingressos_solidario,
+                                where: { cis_cod: { [Op.in]: allowed_solidario } },
+                                required: false
+                            }
+                        ]
                     }
                 }
             ]
