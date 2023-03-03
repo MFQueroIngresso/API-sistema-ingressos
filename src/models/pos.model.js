@@ -175,6 +175,7 @@ class POS {
                         /* { model: lltckt_product }, */
                         {
                             model: tbl_classe_ingressos_solidario,
+                            as: 'solidarios',
                             where: { cis_cod: { [Op.in]: allowed_solidario } },
                             required: false
                         }
@@ -199,6 +200,7 @@ class POS {
                             /* { model: lltckt_product }, */
                             {
                                 model: tbl_classe_ingressos_solidario,
+                                as: 'solidarios',
                                 where: { cis_cod: { [Op.in]: allowed_solidario } },
                                 required: false
                             }
@@ -338,6 +340,7 @@ class POS {
                             },
                             {
                                 model: tbl_classe_ingressos_solidario,
+                                as: 'solidarios',
                                 where: { cis_cod: { [Op.in]: allowed_solidario } },
                                 required: false
                             }
@@ -357,6 +360,7 @@ class POS {
                                 },
                                 {
                                     model: tbl_classe_ingressos_solidario,
+                                    as: 'solidarios',
                                     where: { cis_cod: { [Op.in]: allowed_solidario } },
                                     required: false
                                 }

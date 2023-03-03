@@ -63,12 +63,20 @@ const tbl_classe_ingressos_solidario = db_conn.define(
 // foreign keys
 
 // ticketsl_promo.tbl_classes_ingressos (cis_cod_classe_ingresso → cla_cod)
-tbl_classes_ingressos.hasMany(tbl_classe_ingressos_solidario, {
+const tbl_classes_ingressos_options = {
     foreignKey: 'cis_cod_classe_ingresso',
     sourceKey: 'cla_cod',
     onUpdate: 'set null',
     onDelete: 'set null',
     hooks: true
+}
+
+tbl_classes_ingressos.hasMany(tbl_classe_ingressos_solidario, {
+    ...tbl_classes_ingressos_options
+});
+tbl_classes_ingressos.hasMany(tbl_classe_ingressos_solidario, {
+    ...tbl_classes_ingressos_options,
+    as: 'solidarios'
 });
 tbl_classe_ingressos_solidario.belongsTo(tbl_classes_ingressos, {
     foreignKey: 'cis_cod_classe_ingresso',
