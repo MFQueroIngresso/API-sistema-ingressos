@@ -295,6 +295,21 @@ class POS {
         })
         .then(tickets => tickets?.map(e => e?.cip_classe_ingresso));
 
+        // Obtêm os ingressos solidários do PDV
+        const allowed_solidario = await tbl_classes_ingressos_pdvs_solidario.findAll({
+            where: {
+                cipc_pdv: pdv,
+                cipc_classe_ingresso: { [Op.in]: allowed_tickets }
+            },
+            include: {
+                model: tbl_classe_ingressos_solidario,
+                attributes: [ 'cis_cod', 'cis_cod_classe_ingresso' ]
+            }
+        })
+        .then(solidarios => (
+            solidarios?.map(a => a.tbl_classe_ingressos_solidario.cis_cod)
+        ));
+
         const categories = await tbl_categorias_classes_ingressos.findAll({
             where: { cat_evento: evento },
             attributes: [ 'cat_cod', 'cat_evento' ]
@@ -316,10 +331,17 @@ class POS {
                             cla_cod: { [Op.in]: allowed_tickets},
                             cla_categoria_id: { [Op.notIn]: categories }
                         },
-                        include: {
-                            model: tbl_itens_classes_ingressos,
-                            order: [[ 'itc_prioridade', 'ASC' ]]
-                        }
+                        include: [
+                            {
+                                model: tbl_itens_classes_ingressos,
+                                order: [[ 'itc_prioridade', 'ASC' ]]
+                            },
+                            {
+                                model: tbl_classe_ingressos_solidario,
+                                where: { cis_cod: { [Op.in]: allowed_solidario } },
+                                required: false
+                            }
+                        ]
                     },
                     {
                         model: tbl_categorias_classes_ingressos,
@@ -328,10 +350,17 @@ class POS {
                             where: {
                                 cla_cod: { [Op.in]: allowed_tickets }
                             },
-                            include: {
-                                model: tbl_itens_classes_ingressos,
-                                order: [[ 'itc_prioridade', 'ASC' ]]
-                            }
+                            include: [
+                                {
+                                    model: tbl_itens_classes_ingressos,
+                                    order: [[ 'itc_prioridade', 'ASC' ]]
+                                },
+                                {
+                                    model: tbl_classe_ingressos_solidario,
+                                    where: { cis_cod: { [Op.in]: allowed_solidario } },
+                                    required: false
+                                }
+                            ]
                         }
                     }
                 ]
