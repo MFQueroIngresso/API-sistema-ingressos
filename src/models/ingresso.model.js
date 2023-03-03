@@ -474,9 +474,38 @@ class IngressoModel {
 
                 data.ing_item_classe_ingresso = aux.itc_cod; // Item da classe
                 data.ing_valor = aux.itc_valor;              // Valor do ingresso
-                data.ing_taxa = ing_class.cla_valor_taxa;    // Taxa
+                data.ing_taxa = parseFloat(ing_class.cla_valor_taxa);    // Taxa
                 data.ing_meia = ing_class.cla_meia_inteira;  // Meia/Inteira
             });
+
+            // Taxas, com base no meio de pagamento
+            // obs.: depois tem de tirar esse mock
+            /* const dinheiro_tax = 0;
+            const credito_tax = data.ing_valor * 0.02;
+            const debito_tax = 1;
+
+            // Taxa adicional com base no meio de pagamento
+            switch(data.ing_mpgto) {
+                // Pix
+                case null:
+                
+                // Dinheiro
+                case 1:
+                    data.ing_taxa += dinheiro_tax;
+                    break;
+
+                // Crédito
+                case 2:
+                    data.ing_taxa += credito_tax;
+                    break;
+
+                // Débito
+                case 3:
+                    data.ing_taxa += debito_tax;
+                    break;
+
+                default: break;
+            } */
 
             // Gera os códigos de barras para cada ingresso
             const ings = await this.barcodeGen(item.quant).then(codes => (
