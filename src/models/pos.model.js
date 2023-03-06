@@ -110,8 +110,11 @@ class POS {
             attributes: [ 'evp_pdv', 'evp_evento' ],
             include: {
                 model: tbl_eventos,
-                where: { eve_ativo: 1 }, // somente eventos ativos
-                attributes: [ 'eve_cod', 'eve_ativo' ]
+                where: {
+                    eve_ativo: 1,
+                    eve_fim: { [Op.gte]: Date.now() }
+                },
+                attributes: [ 'eve_cod', 'eve_ativo', 'eve_fim' ]
             }
         })
         .then(eventos => eventos?.map(e => e?.evp_evento));
@@ -328,8 +331,8 @@ class POS {
 
                         resolve(evento);
                     });
-                }))
-            );
+                })
+            ));
 
             return await Promise.all(aux).then(data => (
                 { pdv: pdv_data, data }
