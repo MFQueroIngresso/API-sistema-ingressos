@@ -5,6 +5,7 @@
 */
 
 const lltckt_cart = require('./lltckt_cart');
+const lltckt_category_description = require('./lltckt_category_description');
 const lltckt_category = require('./lltckt_category');
 const lltckt_eve_categorias = require('./lltckt_eve_categorias');
 const lltckt_order_product_barcode = require('./lltckt_order_product_barcode');
@@ -23,6 +24,7 @@ const lltckt_product = require('./lltckt_product');
 const syncModels = async () => {
     /* { alter: true } */
     await lltckt_category.sync();
+    await lltckt_category_description.sync();
     await lltckt_product.sync();
     await lltckt_cart.sync();
     await lltckt_eve_categorias.sync();
@@ -35,6 +37,7 @@ syncModels();
 
 module.exports = {
     lltckt_cart,
+    lltckt_category_description,
     lltckt_category,
     lltckt_eve_categorias,
     lltckt_order_product_barcode,

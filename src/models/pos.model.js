@@ -18,6 +18,7 @@ const {
 const {
     lltckt_eve_categorias,
     lltckt_category,
+    lltckt_category_description,
     lltckt_product,
 } = ticketsl_loja;
 
@@ -149,11 +150,16 @@ class POS {
             where: {
                 eve_cod: { [Op.in]: allowed_eventos }
             },
+            separate: true,
             include: [
                 {
                     model: lltckt_eve_categorias,
+                    required: false,
                     include: {
-                        model: lltckt_category
+                        model: lltckt_category,
+                        attributes: [ 'category_id', 'mapa', 'image' ],
+                        required: false,
+                        include: lltckt_category_description
                     },
                     limit: 1//
                 },
@@ -163,6 +169,7 @@ class POS {
                         cla_cod: { [Op.in]: allowed_tickets },
                         cla_categoria_id: { [Op.notIn]: categories }
                     },
+                    separate: true,
                     include: [
                         {
                             model: tbl_itens_classes_ingressos,
@@ -170,14 +177,16 @@ class POS {
                                 ['itc_prioridade', 'ASC'], // organizar por prioridade
                                 ['itc_quantidade', 'ASC']  //  "    "   por quantidade
                             ],
-                            limit: 1
+                            limit: 1,
+                            separate: true
                         },
                         /* { model: lltckt_product }, */
                         {
                             model: tbl_classe_ingressos_solidario,
                             as: 'solidarios',
                             where: { cis_cod: { [Op.in]: allowed_solidario } },
-                            required: false
+                            required: false,
+                            separate: true
                         }
                     ]
                 },
@@ -188,6 +197,7 @@ class POS {
                         where: {
                             cla_cod: { [Op.in]: allowed_tickets }
                         },
+                        separate: true,
                         include: [
                             {
                                 model: tbl_itens_classes_ingressos,
@@ -195,14 +205,16 @@ class POS {
                                     ['itc_prioridade', 'ASC'], // organizar por prioridade
                                     ['itc_quantidade', 'ASC']  //  "    "   por quantidade
                                 ],
-                                limit: 1
+                                limit: 1,
+                                separate: true
                             },
                             /* { model: lltckt_product }, */
                             {
                                 model: tbl_classe_ingressos_solidario,
                                 as: 'solidarios',
                                 where: { cis_cod: { [Op.in]: allowed_solidario } },
-                                required: false
+                                required: false,
+                                separate: true
                             }
                         ]
                     }
@@ -212,68 +224,110 @@ class POS {
         .then(async data => {
             const eventos = JSON.parse(JSON.stringify(data));
 
+            // Obtem a Logo do evento
+            const get_logo = async eve_cod => {
+                // URL base das logos de impressão
+                const url_base = 'http://gestao.qingressos.com/images/evento';
+
+                // Endereço da logo
+                const logo = `${url_base}/${eve_cod}.bmp`;
+
+                // Valida a URL da logo
+                return await this.validateUrl(logo);
+            }
+
+            // Obtem a Imagem da Vitrine
+            const get_vitrine = async image_name => {
+                // URL base das imagens dos eventos
+                const url_base = 'https://qingressos.com/image/cache';
+
+                // Link da imagem do evento
+                const link_image = `${url_base}/${image_name}`;
+
+                // Obtêm a extensão da imagem
+                const type = [
+                    link_image.indexOf('.png'),
+                    link_image.indexOf('.jpg'),
+                ]
+
+                // Adiciona as dimensões da imagem
+                const position = type.find(a => a >= 0);
+                const image = link_image.substring(0, position) + '-638x359' + link_image.substring(position);
+
+                // Valida a URL da imagem
+                return await this.validateUrl(image);
+            }
+
+            // Obtem o Mapa dos Ingressos
+            const get_mapa_ing = async eve_mapa => {
+                if(!!eve_mapa) {
+                    // URL base do mapa
+                    const url_base = 'http://gestao.qingressos.com/images/mapa';
+                    const mapa = `${url_base}/${eve_mapa}`;
+
+                    // Valida a URL do mapa
+                    return await this.validateUrl(mapa);
+                }
+                return null;
+            }
+
+            // Obtem o Mapa Estático do Evento
+            const get_mapa_estatico = async mapa => {
+                if(!!mapa) {
+                    // URL base do mapa estático
+                    const url_base = `http://gestao.qingressos.com/images/evento`;
+
+                    // Nome da imagem
+                    const split_aux = mapa.split('/');
+                    const mEstatico = split_aux[split_aux.length -1]
+                    const mapa_estatico = `${url_base}/${mEstatico}`;
+
+                    // Valida a URL do mapa estático
+                    return await this.validateUrl(mapa_estatico);
+                }
+                return null;
+            }
+
             const aux = eventos.map(async evento => (
                 new Promise(async resolve => {
 
-                    // Logo do Evento
-                    // URL base das logos de impressão
-                    const url_base_logo = 'http://gestao.qingressos.com/images/evento';
+                    // Obtem os links de imagens/mapas do Evento
+                    const gets = [
+                        // Logo do Evento
+                        get_logo(evento.eve_cod),
 
-                    // Endereço da logo
-                    const logo = `${url_base_logo}/${evento.eve_cod}.bmp`;
+                        // Imagem da Vitrine
+                        get_vitrine(evento.lltckt_eve_categorias[0].lltckt_category.image),
 
-                    // Valida a URL da logo
-                    evento.eve_logo = await this.validateUrl(logo);
-    
-    
-                    // Imagem da Vitrine
-                    // URL base das imagens dos eventos
-                    const url_base_image = 'https://qingressos.com/image/cache';
-    
-                    // Endereço da imagem
-                    const image_name = evento.lltckt_eve_categorias[0].lltckt_category.image;
-    
-                    // Link da imagem do evento
-                    evento.image = `${url_base_image}/${image_name}`;
-    
-                    // Obtêm a extensão da imagem
-                    const type = [
-                        evento.image.indexOf('.png'),
-                        evento.image.indexOf('.jpg'),
+                        // Mapa dos Ingressos
+                        get_mapa_ing(evento.eve_mapa),
+
+                        // Mapa Estático
+                        get_mapa_estatico(evento.lltckt_eve_categorias[0].lltckt_category.mapa)
                     ]
-    
-                    // Adiciona as dimensões da imagem
-                    const position = type.find(a => a >= 0);
-                    const image = evento.image.substring(0, position) + '-638x359' + evento.image.substring(position);
-    
-                    // Valida a URL da imagem
-                    evento.image = await this.validateUrl(image);
-    
-    
-                    // Mapa dos Ingressos
-                    if(evento.eve_mapa) {
-                        const url_base_mapa = 'http://gestao.qingressos.com/images/mapa';
-                        const mapa = `${url_base_mapa}/${evento.eve_mapa}`;
-    
-                        // Valida a URL do mapa
-                        evento.eve_mapa = await this.validateUrl(mapa);
-                    }
-                    else evento.eve_mapa = null;
-    
-    
-                    // Alterações no json
-                    evento.tbl_classes_ingressos.map(a => {
-                        // Altera "tbl_itens_classes_ingressos" de um array[1] para json
-                        a.tbl_itens_classes_ingressos = a.tbl_itens_classes_ingressos[0];
-    
-                        // Altera "lltckt_product" de um array para json
-                        //a.lltckt_products = a.lltckt_products[0];
-                        return a;
+
+                    await Promise.all(gets).then(data => {
+                        evento.eve_logo = data[0];      // Logo do Evento
+                        evento.image = data[1];         // Imagem da Vitrine
+                        evento.eve_mapa = data[2];      // Mapa dos Ingressos
+                        evento.mapa_estatico = data[3]; // Mapa Estático
+
+                        // Alterações no json
+                        evento.tbl_classes_ingressos.map(a => {
+                            // Altera "tbl_itens_classes_ingressos" de um array[1] para json
+                            a.tbl_itens_classes_ingressos = a.tbl_itens_classes_ingressos[0];
+        
+                            // Altera "lltckt_product" de um array para json
+                            //a.lltckt_products = a.lltckt_products[0];
+                            return a;
+                        });
+
+                        const description = evento.lltckt_eve_categorias[0].lltckt_category.lltckt_category_description;
+                        evento.description = description.description;
+                        delete evento.lltckt_eve_categorias;
+
+                        resolve(evento);
                     });
-    
-                    delete evento.lltckt_eve_categorias;
-    
-                    resolve(evento);
                 }))
             );
 
