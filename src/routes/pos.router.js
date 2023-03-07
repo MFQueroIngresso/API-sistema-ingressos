@@ -7,6 +7,7 @@ router.post('/login', POS.login);
 
 router.post('/getData', POS.getData);
 router.post('/getClass', POS.getClass);
+router.post('/getInfo', POS.getInfo);
 
 router.post('/add', POS.add);
 router.post('/add/modelo', POS.add_modelo);

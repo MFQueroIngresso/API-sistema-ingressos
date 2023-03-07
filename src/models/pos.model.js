@@ -162,7 +162,6 @@ class POS {
                         model: lltckt_category,
                         attributes: [ 'category_id', 'mapa', 'image' ],
                         required: false,
-                        include: lltckt_category_description
                     },
                     limit: 1//
                 },
@@ -325,8 +324,6 @@ class POS {
                             return a;
                         });
 
-                        const description = evento.lltckt_eve_categorias[0].lltckt_category.lltckt_category_description;
-                        evento.description = description.description;
                         delete evento.lltckt_eve_categorias;
 
                         resolve(evento);
@@ -464,6 +461,41 @@ class POS {
                     return categoria;
                 })
             }
+        });
+    }
+
+    /**
+     * Obtêm as informações do Evento para o POS.
+     * 
+     * @param {number} evento Id do Evento.
+     */
+    async getEventoInfo(evento) {
+        return await lltckt_eve_categorias.findOne({
+            where: { codEvePdv: evento },
+            attributes: [ 'codEvePdv' ],
+            include: {
+                model: lltckt_category,
+                attributes: [ 'category_id' ],
+                include: {
+                    model: lltckt_category_description,
+                    attributes: [ 'release' ]
+                }
+            }
+        })
+        .then(result => {
+            if(!!result) {
+                // Descrição do Evento
+                const raw_text = result.lltckt_category.lltckt_category_description.release;
+
+                // Decodificador de texto HTML
+                const { decode } = require('html-entities');
+
+                // Codifica as entidades HTML em texto
+                const description = decode(raw_text);
+
+                return { description }
+            }
+            else throw 'Evento não encontrado';
         });
     }
 }

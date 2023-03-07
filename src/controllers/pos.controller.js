@@ -224,6 +224,27 @@ class POSController {
             });
         });
     }
+
+    /**
+     * Obtêm as informações do Evento para o POS.
+     * 
+     * @param {Request} req { evento }
+     * @param {Response} res 
+     */
+    static async getInfo(req, res) {
+        const { evento } = req.body;
+        const model = new POS();
+
+        await model.getEventoInfo(evento)
+        .then(a => res.json(a))
+        .catch(e => {
+            console.error(e);
+            res.status(400).json({
+                erro: 'Erro ao Obter as Informações do Evento',
+                message: JSON.stringify(e)
+            });
+        });
+    }
 }
 
 module.exports = POSController;
