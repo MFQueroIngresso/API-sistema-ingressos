@@ -101,52 +101,35 @@ class POS {
      */
     async getEventosAutorizados(pdv) {
 
+        // Eventos permitidos
+        const allowed_eventos = []
+
         // Obtêm os dados do PDV
-        const pdv_data = await tbl_pdvs.findByPk(pdv);
-
-        // Agrupa os eventos permitidos
-        const allowed_eventos = await tbl_eventos_pdvs.findAll({
-            where: { evp_pdv: pdv },
-            attributes: [ 'evp_pdv', 'evp_evento' ],
+        const pdv_data = await tbl_pdvs.findByPk(pdv, {
             include: {
-                model: tbl_eventos,
-                where: {
-                    eve_ativo: 1,
-                    eve_fim: { [Op.gte]: Date.now() }
-                },
-                attributes: [ 'eve_cod', 'eve_ativo', 'eve_fim' ]
+                model: tbl_eventos_pdvs,
+                attributes: [ 'evp_pdv', 'evp_evento' ],
+                separate: true,
+                include: {
+                    model: tbl_eventos,
+                    where: {
+                        eve_ativo: 1,
+                        eve_fim: { [Op.gte]: Date.now() }
+                    },
+                    attributes: [ 'eve_cod', 'eve_ativo', 'eve_fim' ]
+                }
             }
         })
-        .then(eventos => eventos?.map(e => e?.evp_evento));
+        .then(data => {
+            const pdv = JSON.parse(JSON.stringify(data));
 
-        // Agrupa os ingressos permitidos
-        const allowed_tickets = await tbl_classes_ingressos_pdvs.findAll({ where: { cip_pdv: pdv }})
-        .then(tickets => tickets?.map(e => e?.cip_classe_ingresso));
+            // Agrupa os eventos permitidos
+            pdv.tbl_eventos_pdvs.map(e => allowed_eventos.push(e.evp_evento))
+            delete pdv.tbl_eventos_pdvs;
 
-        // Obtêm os ingressos solidários do PDV
-        const allowed_solidario = await tbl_classes_ingressos_pdvs_solidario.findAll({
-            where: {
-                cipc_pdv: pdv,
-                cipc_classe_ingresso: { [Op.in]: allowed_tickets }
-            },
-            include: {
-                model: tbl_classe_ingressos_solidario,
-                attributes: [ 'cis_cod', 'cis_cod_classe_ingresso' ]
-            }
-        })
-        .then(solidarios => (
-            solidarios?.map(a => a.tbl_classe_ingressos_solidario.cis_cod)
-        ));
-
-        // Obtêm as categorias das classes
-        const categories = await tbl_categorias_classes_ingressos.findAll({
-            where: {
-                cat_evento: { [Op.in]: allowed_eventos }
-            },
-            attributes: [ 'cat_cod', 'cat_evento' ]
-        })
-        .then(categories => categories?.map(a => a.cat_cod));
-
+            // Retorna os dados do PDV
+            return pdv;
+        });
 
         // Obtêm todos os eventos e ingressos permitidos ao POS
         return await tbl_eventos.findAll({
@@ -164,62 +147,6 @@ class POS {
                         required: false,
                     },
                     limit: 1//
-                },
-                {
-                    model: tbl_classes_ingressos,
-                    where: {
-                        cla_cod: { [Op.in]: allowed_tickets },
-                        cla_categoria_id: { [Op.notIn]: categories }
-                    },
-                    separate: true,
-                    include: [
-                        {
-                            model: tbl_itens_classes_ingressos,
-                            order: [
-                                ['itc_prioridade', 'ASC'], // organizar por prioridade
-                                ['itc_quantidade', 'ASC']  //  "    "   por quantidade
-                            ],
-                            limit: 1,
-                            separate: true
-                        },
-                        /* { model: lltckt_product }, */
-                        {
-                            model: tbl_classe_ingressos_solidario,
-                            as: 'solidarios',
-                            where: { cis_cod: { [Op.in]: allowed_solidario } },
-                            required: false,
-                            separate: true
-                        }
-                    ]
-                },
-                {
-                    model: tbl_categorias_classes_ingressos,
-                    include: {
-                        model: tbl_classes_ingressos,
-                        where: {
-                            cla_cod: { [Op.in]: allowed_tickets }
-                        },
-                        separate: true,
-                        include: [
-                            {
-                                model: tbl_itens_classes_ingressos,
-                                order: [
-                                    ['itc_prioridade', 'ASC'], // organizar por prioridade
-                                    ['itc_quantidade', 'ASC']  //  "    "   por quantidade
-                                ],
-                                limit: 1,
-                                separate: true
-                            },
-                            /* { model: lltckt_product }, */
-                            {
-                                model: tbl_classe_ingressos_solidario,
-                                as: 'solidarios',
-                                where: { cis_cod: { [Op.in]: allowed_solidario } },
-                                required: false,
-                                separate: true
-                            }
-                        ]
-                    }
                 }
             ]
         })
@@ -313,16 +240,6 @@ class POS {
                         evento.image = data[1];         // Imagem da Vitrine
                         evento.eve_mapa = data[2];      // Mapa dos Ingressos
                         evento.mapa_estatico = data[3]; // Mapa Estático
-
-                        // Alterações no json
-                        evento.tbl_classes_ingressos.map(a => {
-                            // Altera "tbl_itens_classes_ingressos" de um array[1] para json
-                            a.tbl_itens_classes_ingressos = a.tbl_itens_classes_ingressos[0];
-        
-                            // Altera "lltckt_product" de um array para json
-                            //a.lltckt_products = a.lltckt_products[0];
-                            return a;
-                        });
 
                         delete evento.lltckt_eve_categorias;
 
