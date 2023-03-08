@@ -402,7 +402,10 @@ class POS {
         .then(result => {
             if(!!result) {
                 // Descrição do Evento
-                const raw_text = result.lltckt_category.lltckt_category_description.release;
+                const raw_text = result?.lltckt_category?.lltckt_category_description?.release;
+
+                // Evento sem descrição?
+                if(!raw_text) throw 'Evento sem descrição';
 
                 // Decodificador de texto HTML
                 const { decode } = require('html-entities');
@@ -410,6 +413,7 @@ class POS {
                 // Codifica as entidades HTML em texto
                 const description = decode(raw_text);
 
+                // Retorna a descrição do Evento
                 return { description }
             }
             else throw 'Evento não encontrado';
