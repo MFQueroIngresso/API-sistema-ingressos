@@ -3,6 +3,7 @@ const { ticketsl_promo, ticketsl_loja } = require('../schemas');
 const { SHA256, MD5 } = require('crypto-js');
 
 const {
+    usuario,
     tbl_pos,
     tbl_pdvs,
     tbl_eventos_pdvs,
@@ -92,6 +93,32 @@ class POS {
             
             return { pdv: `${data.pos_pdv}`, sessao: genSession() }
         });
+    }
+
+    /**
+     * Realiza o acesso do administrador no POS.
+     * 
+     * @param {string} login 
+     * @param {string} senha 
+     * @returns 
+     */
+    async loginAdm(login, senha) {
+        return usuario.findOne({
+            where: {
+                LOGIN: login,
+                SENHA: senha
+            },
+            attributes: [ 'CODIGO' ]
+        })
+        .then(a => {
+            // Usuário não encontrado?
+            if(!a?.CODIGO) throw 'Login ou Senha inválidos';
+
+            // Verifica se o usuário é um administrador dos POS
+            const is_adm = a.CODIGO === parseInt(process.env.ADM_POS);
+
+            return is_adm;
+        })
     }
 
     /**

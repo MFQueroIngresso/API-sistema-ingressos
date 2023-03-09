@@ -39,6 +39,31 @@ class POSController {
     }
 
     /**
+     * Login de administrador no POS.
+     * 
+     * @param {Request} req { login, senha }
+     * @param {Response} res 
+     */
+    static async loginAdm(req, res) {
+        const { login, senha } = req.body;
+
+        // Descriptografa a senha
+        // obs: ainda preciso decidir como será
+        let pass = senha;
+
+        const model = new POS();
+        await model.loginAdm(login, pass)
+        .then(a => res.json(a))
+        .catch(e => {
+            console.error(e);
+            res.status(400).json({
+                error: 'Erro ao Logar no POS',
+                message: JSON.stringify(e)
+            });
+        });
+    }
+
+    /**
      * Obtêm os dados do PDV/POS.
      * 
      * @param {Request} req { hash, sessao }
