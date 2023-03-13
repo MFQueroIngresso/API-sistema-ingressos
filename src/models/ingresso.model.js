@@ -450,17 +450,17 @@ class IngressoModel {
                     'cla_meia_inteira'
                 ],
                 include: {
-                    model: tbl_itens_classes_ingressos,
-                    order: [
-                        ['itc_prioridade', 'ASC'], // organizar por prioridade
-                        ['itc_quantidade', 'ASC']  //  "    "   por quantidade
-                    ],
-                    attributes: [
-                        'itc_classe',
-                        'itc_cod',
-                        'itc_valor'
-                    ],
-                    limit: 1
+                        model: tbl_itens_classes_ingressos,
+                        order: [
+                            ['itc_prioridade', 'ASC'], // organizar por prioridade
+                            ['itc_quantidade', 'ASC']  //  "    "   por quantidade
+                        ],
+                        attributes: [
+                            'itc_classe',
+                            'itc_cod',
+                            'itc_valor'
+                        ],
+                        limit: 1
                 }
             })
             .then(({ dataValues: ing_class }) => {
@@ -550,6 +550,7 @@ class IngressoModel {
                                 if(!!result[0] > 0) {
                                     // Adiciona o ingresso novamente ao estoque
                                     await this.promoIncrement(1, ing.ing_item_classe_ingresso);
+                                    await this.lojaIncrement(1, ing.ing_classe_ingresso);
                                 }
                             });
                         });
